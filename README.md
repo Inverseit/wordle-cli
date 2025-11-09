@@ -35,12 +35,12 @@
 
 ### Overview
 
-- NodeNext ESM TypeScript project targeting six-letter Wordle puzzles.
-- Ships both a CLI (`src/cli`) and a library surface (`src/lib/index.ts`) for reuse.
-- Uses a disk-backed `PatternCache` keyed by the SHA-256 of the active dictionary.
+- pnpm-based monorepo with a reusable solver package (`@wordle/core`) and a Next.js frontend (`@wordle/web`).
+- Core package exposes both a CLI (`packages/core/src/cli`) and a library surface (`packages/core/src/lib/index.ts`) for reuse.
+- Uses a disk-backed `PatternCache` keyed by the SHA-256 of the active dictionary (generated at build time for the web).
 - Includes two entropy-driven strategies: candidate-only and full-word probing.
-- Bundles a Kazakh six-letter dictionary (`src/lib/wordlist.ts`) by default.
-- Supports interactive play, automated simulation, and offline precomputation.
+- Bundles a Kazakh six-letter dictionary (`packages/core/src/lib/wordlist.ts`) by default.
+- Supports interactive play, automated simulation, offline precomputation, and a Tailwind-powered web UX suitable for Vercel.
 
 ### Mathematical Foundations
 
@@ -67,37 +67,39 @@ We use **Shannon entropy** to pick guesses that reduce uncertainty the most on a
 ### Project Layout
 
 ```
-src/
-  cli/
-    args.ts          # parses --mode, --precompute, --cache-dir, ...
-    game.ts          # interactive loop, auto simulation, precompute helper
-    index.ts         # CLI entrypoint with shebang
-  lib/
-    config.ts        # WORD_LENGTH, default cache paths
-    entropy.ts       # Shannon entropy helpers operating on pattern rows
-    index.ts         # library barrel (public exports)
-    pattern.ts       # feedbackCode + PatternCache (Uint16 rows on disk)
-    solvers/
-      BaseSolver.ts        # shared evaluation logic with chunked execution
-      HardcoreSolver.ts    # guesses restricted to current candidates
-      FullEntropySolver.ts # guesses across the full allowed list
-    types.ts         # SolverContext, PatternCode, GuessEval interfaces
-    utils.ts         # hashing, base-3 encoding, human-readable patterns
-    wordlist.ts      # six-letter Kazakh dictionary (WORDS array)
-cache/
-  patterns/          # created on demand; stores <guess>.<dictHash>.bin rows
-tsconfig.json        # ES2022 target, NodeNext module resolver, src rootDir
-package.json         # scripts (dev/solve/precompute) and ESM exports
+apps/
+  web/                     # Next.js 16 app with Tailwind UX
+    src/app/               # App Router pages / layouts
+    public/cache/patterns/ # build-time cache artifacts (generated)
+packages/
+  core/
+    src/
+      cli/                 # CLI entrypoint and game orchestration
+      lib/                 # Reusable solver library
+        config.ts
+        entropy.ts
+        pattern.ts
+        solvers/
+        types.ts
+        utils.ts
+        wordlist.ts
+    package.json           # @wordle/core scripts and exports
+    tsconfig.json
+pnpm-workspace.yaml        # workspace definition (apps/*, packages/*)
+tsconfig.base.json         # shared TS compiler settings
+package.json               # root scripts orchestrating build pipeline
 ```
 
 ### Installation & Scripts
 
-- `pnpm install` (or `npm install` / `yarn` if you prefer).
-- `pnpm dev -- --mode=hardcore` runs the TypeScript CLI via `tsx`.
-- `pnpm solve` uses hardcore mode; `pnpm solve:full` uses full entropy mode.
-- `pnpm precompute` walks the dictionary and saves every pattern row to disk.
-- `pnpm build` emits `dist/`; `pnpm start` executes the compiled CLI.
-- When forwarding flags through package scripts, prefix CLI args with `--`.
+- `pnpm install` — installs all workspace dependencies (core + web).
+- `pnpm run dev` — starts the Next.js UI (`apps/web`) after building `@wordle/core`.
+- `pnpm --filter @wordle/core run dev` — runs the CLI in watch mode via `tsx`.
+- `pnpm run precompute` — generates pattern cache files into `apps/web/public/cache`.
+- `pnpm --filter @wordle/core run precompute -- --cache-dir=./cache` — custom cache location.
+- `pnpm run build` — compiles `@wordle/core`, regenerates cache, then builds the Next app.
+- `pnpm --filter @wordle/web run build` or `start` for web-only operations.
+- When forwarding flags through workspace scripts, prefix CLI args with `--`.
 
 ### CLI Usage
 
@@ -112,18 +114,35 @@ package.json         # scripts (dev/solve/precompute) and ESM exports
 Examples:
 
 ```bash
-pnpm dev -- --mode=full
-pnpm dev -- --mode=hardcore --auto=абайла
-pnpm precompute -- --cache-dir=.cache --recompute
-pnpm start -- --mode=full --cache-dir=.cache
-pnpm solve        # uses hardcore mode
-pnpm solve:full   # uses full entropy mode
+pnpm --filter @wordle/core run dev -- --mode=full
+pnpm --filter @wordle/core run dev -- --mode=hardcore --auto=абайла
+pnpm --filter @wordle/core run precompute -- --cache-dir=.cache --recompute
+pnpm --filter @wordle/core run start -- --mode=full --cache-dir=.cache
+pnpm --filter @wordle/core run solve
+pnpm --filter @wordle/core run solve:full
 ```
+
+### Веб интерфейс
+
+- `pnpm run dev` — Tailwind негізіндегі Next.js қосымшасын (App Router) ыстық қайта жүктеумен іске қосады.
+- Веб қосымша шешуші функцияларды `@wordle/core` пакетінің ішінен тікелей импорттайды.
+- `pnpm run build` — core-ды құрастырып, кэшті `apps/web/public/cache/patterns` ішіне жазады, кейін `next build` орындайды.
+- Vercel-де жобаның түбірі ретінде `apps/web` таңдалып, build командасы ретінде `pnpm run build` (репо түбірінен) көрсетіледі; нәтиже `.next` қалтасында.
+- Кэш файлдары статикалық активтер, сөздік жаңарғанда хэш өзгеріп, файлдар қайта жасалады.
+
+### Web Interface
+
+- `pnpm run dev` launches the Next.js App Router frontend with Tailwind styling and hot reloading.
+- The web app imports solver utilities from `@wordle/core`; no duplicate logic.
+- `pnpm run build` triggers `@wordle/core` compilation, regenerates the cache into `apps/web/public/cache/patterns`, then runs `next build`.
+- For Vercel, set the project root to `apps/web`, use `pnpm run build` (executed from repo root) as the build command, and leave the output directory as `.next`.
+- Cache files are static build artifacts; they can be served from `public/cache` and invalidate automatically when the dictionary hash changes.
 
 ### Pattern Cache & Entropy
 
 - `feedbackCode` performs two-pass Wordle scoring (greens first, then yellows) and encodes the result in base-3 as an integer in `[0, 728]`.
-- `PatternCache` stores a `Uint16Array` per guess where `row[targetIndex]` is the feedback code; files live at `cache/patterns/<guess>.<dictHash>.bin`.
+- `PatternCache` stores a `Uint16Array` per guess where `row[targetIndex]` is the feedback code; by default files live at `cache/patterns/<guess>.<dictHash>.bin`.
+- The root `pnpm run precompute` script writes the same layout to `apps/web/public/cache/patterns` so the web UI can serve them as static assets.
 - The dictionary signature is `sha256(JSON.stringify({ len, words }))`, so any change to `WORDS` triggers new cache files.
 - `entropyForGuess` reuses the cached row to compute Shannon entropy over the remaining candidate indices.
 - `pnpm precompute` iterates every allowed word, materialising rows to warm the cache ahead of gameplay or benchmarking.
@@ -144,9 +163,9 @@ pnpm solve:full   # uses full entropy mode
 ### Development Notes
 
 - Requires Node.js 18+ for the built-in `node:readline/promises` API and stable ESM support.
-- TypeScript compiler targets ES2022 with `"moduleResolution": "NodeNext"`; source lives under `src`, emitted files land in `dist`.
-- Library consumers can import from `kaz-wordle6-solver/lib` after building (`package.json` exports both JS and `.d.ts` bundles).
-- Cache writes are atomic (`writeAtomic`) to avoid truncation on crashes; ensure the cache directory is writable.
+- `@wordle/core` targets ES2022 with `"moduleResolution": "NodeNext"`; sources live under `packages/core/src`, emitted files land in `packages/core/dist`.
+- Library consumers import from `@wordle/core` (workspace) or from the published `dist/lib/index.js` bundle after building.
+- Cache writes are atomic (`writeAtomic`) to avoid truncation on crashes; ensure any custom cache directory is writable.
 - Although `maxWorkers` chunks the workload into parallel async tasks, entropy evaluation currently runs on the main thread; wiring an actual worker pool with `worker_threads` is a future improvement.
 
 ### References
@@ -162,12 +181,12 @@ pnpm solve:full   # uses full entropy mode
 
 ### Шолу
 
-- NodeNext ESM пішіміндегі TypeScript жобасы алты әріпті Wordle есептеріне бағытталған.
-- CLI (`src/cli`) және қайта пайдалануға болатын кітапхана интерфейсі (`src/lib/index.ts`) бірге жеткізіледі.
+- pnpm жұмыс кеңістігі: шешуші кітапхана (`@wordle/core`) және Next.js фронтендi (`@wordle/web`).
+- Негізгі пакетте CLI (`packages/core/src/cli`) және қайта пайдалануға болатын кітапхана интерфейсі (`packages/core/src/lib/index.ts`) бар.
 - Әр сөздікке арналған SHA-256 хэш арқылы байланыстыратын дискілік `PatternCache` қолданады.
 - Екі энтропиялық стратегия бар: тек кандидаттар және толық сөздер бойынша барлау.
-- Әдепкіде `src/lib/wordlist.ts` файлы Kazakh алты әріпті сөздігін қамтиды.
-- Интерактивті ойын, автоматты симуляция және офлайн алдын ала есептеу қолжетімді.
+- Әдепкіде `packages/core/src/lib/wordlist.ts` файлы Kazakh алты әріпті сөздігін қамтиды.
+- Интерактивті ойын, автоматты симуляция, офлайн алдын ала есептеу және Tailwind негізіндегі веб-UX қолжетімді (Vercel-ге дайындауға болады).
 
 ### Математикалық Негіздеме
 
@@ -194,37 +213,39 @@ pnpm solve:full   # uses full entropy mode
 ### Жоба Құрылымы
 
 ```
-src/
-  cli/
-    args.ts          # --mode, --precompute, --cache-dir жалаушаларын талдау
-    game.ts          # интерактивті цикл, авто режим, алдын ала есептеу
-    index.ts         # CLI кіру нүктесі (shebang)
-  lib/
-    config.ts        # WORD_LENGTH, әдепкі кэш жолдары
-    entropy.ts       # үлгі қатарларымен жұмыс істейтін Шеннон энтропиясы
-    index.ts         # кітапхана экспорттары
-    pattern.ts       # feedbackCode + PatternCache (Uint16 қатарлары)
-    solvers/
-      BaseSolver.ts        # ортақ бағалау логикасы (чанктерге бөлу)
-      HardcoreSolver.ts    # тек кандидаттардан жорамалдайды
-      FullEntropySolver.ts # барлық сөздерден жорамал жасайды
-    types.ts         # SolverContext, PatternCode, GuessEval интерфейстері
-    utils.ts         # хэштеу, 3-тік кодтау, адамға түсінікті үлгі
-    wordlist.ts      # Kazakh алты әріпті сөздік (WORDS массиві)
-cache/
-  patterns/          # сұраныс бойынша жасалады; <guess>.<dictHash>.bin файлдары
-tsconfig.json        # ES2022 нысана, NodeNext модуль рұқсаты, src түбірі
-package.json         # скрипттер (dev/solve/precompute) және ESM экспорттары
+apps/
+  web/                    # Next.js 16 қосымшасы, Tailwind UI
+    src/app/              # App Router беттері мен layout-тары
+    public/cache/patterns # құрастыру кезінде жазылатын кэш
+packages/
+  core/
+    src/
+      cli/                # CLI логикасы және ойын ағыны
+      lib/                # Қайта пайдалануға болатын шешуші кітапхана
+        config.ts
+        entropy.ts
+        pattern.ts
+        solvers/
+        types.ts
+        utils.ts
+        wordlist.ts
+    package.json          # @wordle/core скрипттері және экспорттары
+    tsconfig.json
+pnpm-workspace.yaml       # workspace анықтамасы (apps/*, packages/*)
+tsconfig.base.json        # ортақ TypeScript баптаулары
+package.json              # түбір скрипттері, құрастыру конвейері
 ```
 
 ### Орнату және Скрипттер
 
-- `pnpm install` (немесе `npm install` / `yarn` пайдаланыңыз).
-- `pnpm dev -- --mode=hardcore` CLI-ді `tsx` арқылы TypeScript күйінде іске қосады.
-- `pnpm solve` hardcore режимін, `pnpm solve:full` толық энтропия режимін қолданады.
-- `pnpm precompute` барлық үлгі қатарларын алдын ала есептеп, дискіге жазады.
-- `pnpm build` → `dist/`, `pnpm start` → құрастырылған CLI-ді іске қосу.
-- Пакет скрипттері арқылы аргумент жібергенде `--` қойып, одан кейін CLI жалаушаларын жазыңыз.
+- `pnpm install` — workspace ішіндегі барлық тәуелділіктерді орнатады (core + web).
+- `pnpm run dev` — `@wordle/core` жинақтап, Next.js Dev серверін іске қосады.
+- `pnpm --filter @wordle/core run dev` — CLI-ді watch режимінде (`tsx`) жүргізеді.
+- `pnpm run precompute` — веб қосымшаға арналған кэшті `apps/web/public/cache` ішіне жазады.
+- `pnpm --filter @wordle/core run precompute -- --cache-dir=./cache` — кэш жолын пайдаланушы қылып көрсету.
+- `pnpm run build` — core-ды құрастырады, кэшті жаңартады, содан кейін Next.js production build жасайды.
+- `pnpm --filter @wordle/web run build` немесе `start` — веб бөлігіне арналған жеке скрипттер.
+- Скрипттер арқылы аргумент өткізу үшін `--` қойыңыз: `pnpm --filter @wordle/core run dev -- --mode=full`.
 
 ### CLI Қолданылуы
 
@@ -239,18 +260,19 @@ package.json         # скрипттер (dev/solve/precompute) және ESM э
 Мысалдар:
 
 ```bash
-pnpm dev -- --mode=full
-pnpm dev -- --mode=hardcore --auto=абайла
-pnpm precompute -- --cache-dir=.cache --recompute
-pnpm start -- --mode=full --cache-dir=.cache
-pnpm solve        # hardcore режимін қолданады
-pnpm solve:full   # толық энтропия режимін қолданады
+pnpm --filter @wordle/core run dev -- --mode=full
+pnpm --filter @wordle/core run dev -- --mode=hardcore --auto=абайла
+pnpm --filter @wordle/core run precompute -- --cache-dir=.cache --recompute
+pnpm --filter @wordle/core run start -- --mode=full --cache-dir=.cache
+pnpm --filter @wordle/core run solve
+pnpm --filter @wordle/core run solve:full
 ```
 
 ### Үлгі Кэші және Энтропия
 
 - `feedbackCode` Wordle ережесі бойынша екі өтімді бағалау жасайды (алдымен жасыл, кейін сары) және нәтижені `[0, 728]` диапазонында 3-тік кодқа айналдырады.
-- `PatternCache` әр жорамал үшін `Uint16Array` қатарын сақтайды; `row[targetIndex]` — сол мақсатқа арналған код. Файлдар `cache/patterns/<guess>.<dictHash>.bin` түрінде жазылады.
+- `PatternCache` әр жорамал үшін `Uint16Array` қатарын сақтайды; `row[targetIndex]` — сол мақсатқа арналған код. Әдепкі файлдар `cache/patterns/<guess>.<dictHash>.bin` ретінде жазылады.
+- Түбірдегі `pnpm run precompute` скрипті дәл осы құрылымды `apps/web/public/cache/patterns` ішіне көшіреді, сондықтан веб қосымша дайын файлдарды статикалық түрде бере алады.
 - Сөздік сигнатурасы `sha256(JSON.stringify({ len, words }))`; `WORDS` өзгерсе, кэш автоматты түрде жаңадан құрылады.
 - `entropyForGuess` дайын қатарды қолданып, қалған кандидаттар бойынша Шеннон энтропиясын есептейді.
 - `pnpm precompute` барлық қатарды алдын ала құрып, кейінгі ойындарды және тесттерді жеделдетеді.
@@ -271,10 +293,10 @@ pnpm solve:full   # толық энтропия режимін қолданад�
 ### Даму Ескертпелері
 
 - Node.js 18+ нұсқасы керек (`node:readline/promises` API және тұрақты ESM үшін).
-- TypeScript компиляторы ES2022-ге бағытталған; бастапқы код `src/` ішінде, нәтижесі `dist/` қалтасына шығады.
-- Құрастырғаннан кейін кітапхананы `kaz-wordle6-solver/lib` атауымен импорттауға болады (`package.json` JS және `.d.ts` экспорттарын береді).
-- Кэш жазбалары атомарлы (`writeAtomic`), сондықтан каталогтың жазуға рұқсаты барын тексеріңіз.
-- `maxWorkers` жұмысты параллель асинхронды тапсырмаларға бөлсе де, энтропия бағалауы қазіргі уақытта негізгі ағында орындалады; `worker_threads` арқылы шынайы worker пулын қосу болашақта жоспарлануда.
+- `@wordle/core` ES2022-ге бағытталған, `"moduleResolution": "NodeNext"`; бастапқы код `packages/core/src`, жинақ нәтижесі `packages/core/dist` ішінде.
+- Кітапхананы workspace ішінде `@wordle/core` атауымен немесе build-тен кейін `dist/lib/index.js` арқылы импорттауға болады.
+- Кэш жазбалары атомарлы (`writeAtomic`), сондықтан кез келген реттелген каталогтың жазуға рұқсаты барын тексеріңіз.
+- `maxWorkers` жұмысты параллель асинхронды чанктерге бөлсе де, есептеу қазіргі уақытта негізгі ағында орындалады; болашақта `worker_threads` арқылы нағыз worker пулын қосу жоспарланған.
 
 ### Пайдаланылған Әдебиеттер
 
