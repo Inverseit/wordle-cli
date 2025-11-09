@@ -1,30 +1,12 @@
 {
-  "name": "kaz-wordle6-solver",
-  "version": "1.0.0",
-  "type": "module",
+  "name": "wordle-monorepo",
   "private": true,
+  "packageManager": "pnpm@9.9.0",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "start": "node ./dist/cli/index.js",
-    "dev": "tsx src/cli/index.ts",
-    "precompute": "tsx src/cli/index.ts --precompute",
-    "solve": "tsx src/cli/index.ts --mode=hardcore",
-    "solve:full": "tsx src/cli/index.ts --mode=full"
-  },
-  "exports": {
-    ".": {
-      "import": "./dist/lib/index.js",
-      "types": "./dist/lib/index.d.ts"
-    },
-    "./lib": {
-      "import": "./dist/lib/index.js",
-      "types": "./dist/lib/index.d.ts"
-    }
-  },
-  "dependencies": {},
-  "devDependencies": {
-    "@types/node": "^22.7.5",
-    "tsx": "^4.7.0",
-    "typescript": "^5.6.3"
+    "build": "pnpm --filter @wordle/core build && pnpm --filter @wordle/core precompute -- --cache-dir=./apps/web/public/cache && pnpm --filter @wordle/web build",
+    "dev": "pnpm --filter @wordle/core build && pnpm --filter @wordle/web dev",
+    "lint": "pnpm --filter @wordle/web lint",
+    "precompute": "pnpm --filter @wordle/core precompute -- --cache-dir=./apps/web/public/cache"
   }
 }
+
