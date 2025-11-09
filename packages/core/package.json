@@ -19,6 +19,10 @@
     "./lib": {
       "import": "./dist/lib/index.js",
       "types": "./dist/lib/index.d.ts"
+    },
+    "./browser": {
+      "import": "./dist/lib/browser.js",
+      "types": "./dist/lib/browser.d.ts"
     }
   },
   "dependencies": {},

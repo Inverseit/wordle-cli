@@ -5,6 +5,8 @@ export interface GuessEval {
   entropy: number;
 }
 
+import type { PatternProvider } from "./patternProvider.js";
+
 export interface SolverContext {
   allWords: string[];
   allIndices: number[];        // [0..N-1]
@@ -16,11 +18,13 @@ export interface SolverContext {
   maxWorkers: number;          // workers for parallel eval
   cacheDir?: string;           // optional cache directory (defaults to "cache")
   patternDir?: string;         // optional pattern cache directory (defaults to "${cacheDir}/patterns")
+  patternProviderFactory?: () => PatternProvider;
 }
 
 export interface Solver {
   name(): string;
   nextGuess(ctx: SolverContext): Promise<GuessEval>;
+  topGuesses?(ctx: SolverContext, limit: number): Promise<GuessEval[]>;
 }
 
 export interface CLIFeedback {

@@ -1,6 +1,7 @@
 import { Solver, SolverContext, GuessEval } from "../types.js";
-import { PatternCache } from "../pattern.js";
 import { entropyForGuess } from "../entropy.js";
+import { PatternProvider } from "../patternProvider.js";
+import { createPatternCacheProvider } from "../patternCacheProvider.js";
 import { cpus } from "node:os";
 
 export abstract class BaseSolver implements Solver {
@@ -8,54 +9,84 @@ export abstract class BaseSolver implements Solver {
   name(): string { return this.constructor.name; }
 
   async nextGuess(ctx: SolverContext): Promise<GuessEval> {
+    const evaluations = await this.rankGuesses(ctx);
+    return evaluations[0] ?? { guessIndex: -1, entropy: -1 };
+  }
+
+  async topGuesses(ctx: SolverContext, limit: number = 10): Promise<GuessEval[]> {
+    const evaluations = await this.rankGuesses(ctx);
+    return evaluations.slice(0, limit);
+  }
+
+  private async rankGuesses(ctx: SolverContext): Promise<GuessEval[]> {
     const guesses = this.guessUniverse(ctx);
     const maxWorkers = Math.max(1, Math.min(ctx.maxWorkers, cpus().length));
-
-    // Use parallel async evaluation for better performance
-    if (maxWorkers === 1 || guesses.length < 128) {
-      return this.singleThreadEval(ctx, guesses);
-    }
-    return this.parallelEval(ctx, guesses, maxWorkers);
+    const evaluations =
+      maxWorkers === 1 || guesses.length < 128
+        ? await this.singleThreadEval(ctx, guesses)
+        : await this.parallelEval(ctx, guesses, maxWorkers);
+    evaluations.sort((a, b) => b.entropy - a.entropy);
+    return evaluations;
   }
 
-  private async singleThreadEval(ctx: SolverContext, guessIdxs: number[]): Promise<GuessEval> {
-    const patternDir = ctx.patternDir ?? (ctx.cacheDir ? `${ctx.cacheDir}/patterns` : undefined);
-    const cache = new PatternCache(ctx.allWords, ctx.wordHash, patternDir);
-    let best = { guessIndex: -1, entropy: -1 };
+  private providerFactory(ctx: SolverContext): () => PatternProvider {
+    if (ctx.patternProviderFactory) {
+      return ctx.patternProviderFactory;
+    }
+    const patternDir =
+      ctx.patternDir ?? (ctx.cacheDir ? `${ctx.cacheDir}/patterns` : undefined);
+    return () =>
+      createPatternCacheProvider(ctx.allWords, ctx.wordHash, patternDir);
+  }
+
+  private async singleThreadEval(
+    ctx: SolverContext,
+    guessIdxs: number[]
+  ): Promise<GuessEval[]> {
+    const provider = this.providerFactory(ctx)();
+    const results: GuessEval[] = [];
     for (const gi of guessIdxs) {
       const g = ctx.allWords[gi];
-      const H = entropyForGuess(g, cache, ctx.candidateIndices, ctx.recompute);
-      if (H > best.entropy) best = { guessIndex: gi, entropy: H };
+      const entropy = entropyForGuess(
+        g,
+        provider,
+        ctx.candidateIndices,
+        ctx.recompute
+      );
+      results.push({ guessIndex: gi, entropy });
     }
-    return best;
+    return results;
   }
 
-  private async parallelEval(ctx: SolverContext, guessIdxs: number[], workers: number): Promise<GuessEval> {
-    // Chunk guesses for parallel processing
+  private async parallelEval(
+    ctx: SolverContext,
+    guessIdxs: number[],
+    workers: number
+  ): Promise<GuessEval[]> {
     const chunks: number[][] = [];
     const chunkSize = Math.ceil(guessIdxs.length / workers);
     for (let i = 0; i < guessIdxs.length; i += chunkSize) {
       chunks.push(guessIdxs.slice(i, i + chunkSize));
     }
 
-    // Evaluate chunks in parallel using Promise.all() with async functions
-    const patternDir = ctx.patternDir ?? (ctx.cacheDir ? `${ctx.cacheDir}/patterns` : undefined);
-    const tasks = chunks.map(async (chunk): Promise<GuessEval> => {
-      const cache = new PatternCache(ctx.allWords, ctx.wordHash, patternDir);
-      let best = { guessIndex: -1, entropy: -1 };
+    const providerFactory = this.providerFactory(ctx);
+    const tasks = chunks.map(async (chunk): Promise<GuessEval[]> => {
+      const provider = providerFactory();
+      const chunkResults: GuessEval[] = [];
       for (const gi of chunk) {
         const g = ctx.allWords[gi];
-        const H = entropyForGuess(g, cache, ctx.candidateIndices, ctx.recompute);
-        if (H > best.entropy) best = { guessIndex: gi, entropy: H };
+        const entropy = entropyForGuess(
+          g,
+          provider,
+          ctx.candidateIndices,
+          ctx.recompute
+        );
+        chunkResults.push({ guessIndex: gi, entropy });
       }
-      return best;
+      return chunkResults;
     });
 
     const results = await Promise.all(tasks);
-    let best = { guessIndex: -1, entropy: -1 };
-    for (const r of results) {
-      if (r.entropy > best.entropy) best = r;
-    }
-    return best;
+    return results.flat();
   }
 }

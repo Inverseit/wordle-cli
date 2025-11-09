@@ -17,3 +17,15 @@ export type KeyboardEvaluation = "unused" | "correct" | "present" | "absent";
 
 export type KeyboardState = Record<string, KeyboardEvaluation>;
 
+export interface GuessHistoryEntry {
+  guess: string;
+  pattern: number;
+}
+
+export type SolverMode = "hardcore" | "full";
+
+export interface BotSuggestion {
+  word: string;
+  entropy: number;
+}
+

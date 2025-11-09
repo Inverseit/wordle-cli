@@ -15,19 +15,19 @@ export { WORD_LENGTH, DEFAULT_CACHE_DIR, DEFAULT_PATTERN_DIR } from "./config.js
 export { WORDS } from "./wordlist.js";
 
 // Pattern matching
-export { feedbackCode, PatternCache } from "./pattern.js";
+export { feedbackCode } from "./feedback.js";
+export { createPatternCacheProvider } from "./patternCacheProvider.js";
+export {
+  createInMemoryPatternProvider,
+  type PatternProvider,
+} from "./patternProvider.js";
 
 // Entropy calculation
 export { entropyForGuess, entropyForGuessRow } from "./entropy.js";
 
 // Utilities
-export {
-  sha256,
-  parsePatternString,
-  humanPattern,
-  decodeBase3,
-  base3EncodePattern,
-} from "./utils.js";
+export { parsePatternString, humanPattern, decodeBase3, base3EncodePattern } from "./utils.js";
+export { sha256 } from "./utils/node.js";
 
 // Solvers
 export { BaseSolver } from "./solvers/BaseSolver.js";

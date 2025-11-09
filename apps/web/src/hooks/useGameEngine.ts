@@ -1,6 +1,11 @@
 "use client";
 
-import { WORDS, WORD_LENGTH, feedbackCode, type PatternCode } from "../lib/coreClient";
+import {
+  WORDS,
+  WORD_LENGTH,
+  feedbackCode,
+  type PatternCode,
+} from "@wordle/core/browser";
 import { useCallback, useMemo, useState } from "react";
 import { WORDLE_MAX_ATTEMPTS } from "../lib/constants";
 import {
@@ -14,6 +19,21 @@ import { patternCodeToEvaluations } from "../lib/patternHelpers";
 const DICTIONARY_SET = new Set(WORDS.map((w) => w.toLowerCase()));
 
 type GameStatus = "playing" | "won" | "lost";
+
+interface CommitSuccess {
+  ok: true;
+  guess: string;
+  pattern: PatternCode;
+  evaluations: TileEvaluation[];
+}
+
+interface CommitError {
+  ok: false;
+  reason: "finished" | "incomplete" | "invalid";
+  message: string;
+}
+
+export type CommitResult = CommitSuccess | CommitError;
 
 function randomSecret(): string {
   const idx = Math.floor(Math.random() * WORDS.length);
@@ -78,6 +98,7 @@ export interface GameEngineControls {
   addLetter: (letter: string) => void;
   removeLetter: () => void;
   submitGuess: () => void;
+  commitGuess: (guess: string) => CommitResult;
   resetGame: (secret?: string) => void;
 }
 
@@ -149,57 +170,87 @@ export function useGameEngine(initialSecret?: string): GameEngineControls {
     setMessage(null);
   }, [status, updateRow]);
 
+  const commitGuess = useCallback(
+    (guessInput: string): CommitResult => {
+      if (status !== "playing") {
+        return {
+          ok: false,
+          reason: "finished",
+          message: "Ойын аяқталды.",
+        };
+      }
+      const guess = guessInput.toLowerCase();
+      if (guess.length !== WORD_LENGTH) {
+        return {
+          ok: false,
+          reason: "incomplete",
+          message: "Әлі толық емес.",
+        };
+      }
+      if (!isDictionaryWord(guess)) {
+        return {
+          ok: false,
+          reason: "invalid",
+          message: "Сөз сөздікте жоқ.",
+        };
+      }
+
+      const pattern: PatternCode = feedbackCode(guess, secret);
+      const evaluations = patternCodeToEvaluations(pattern);
+
+      setRows((prev) =>
+        prev.map((row, idx) => {
+          if (idx !== currentRowIndex) return row;
+          return {
+            tiles: Array.from({ length: WORD_LENGTH }, (_, tileIdx) => ({
+              letter: guess[tileIdx] ?? "",
+              state: evaluations[tileIdx],
+              flipDelay: tileIdx * 120,
+            })),
+            committed: true,
+            patternCode: pattern,
+            invalid: false,
+          };
+        }),
+      );
+
+      setKeyboard((prev) => mergeKeyboardState(prev, guess, evaluations));
+
+      const won = evaluations.every((state) => state === "correct");
+      if (won) {
+        setStatus("won");
+        setMessage("Керемет! Сіз таптыңыз.");
+        return { ok: true, guess, pattern, evaluations };
+      }
+
+      const nextIndex = currentRowIndex + 1;
+      if (nextIndex >= WORDLE_MAX_ATTEMPTS) {
+        setStatus("lost");
+        setMessage(`Жауап: ${secret.toUpperCase()}`);
+        return { ok: true, guess, pattern, evaluations };
+      }
+
+      setCurrentRowIndex(() => nextIndex);
+      setMessage(null);
+
+      return { ok: true, guess, pattern, evaluations };
+    },
+    [status, secret, currentRowIndex],
+  );
+
   const submitGuess = useCallback(() => {
     if (status !== "playing") return;
     const row = rows[currentRowIndex];
     const guess = row.tiles.map((tile) => tile.letter).join("");
-    if (guess.length !== WORD_LENGTH) {
-      setMessage("Әлі толық емес.");
-      updateRow((prev) => ({ ...prev, invalid: true }));
+    const result = commitGuess(guess);
+    if (!result.ok) {
+      setMessage(result.message);
+      if (result.reason === "incomplete" || result.reason === "invalid") {
+        updateRow((prev) => ({ ...prev, invalid: true }));
+      }
       return;
     }
-    if (!isDictionaryWord(guess)) {
-      setMessage("Сөз сөздікте жоқ.");
-      updateRow((prev) => ({ ...prev, invalid: true }));
-      return;
-    }
-    const pattern: PatternCode = feedbackCode(guess, secret);
-    const evaluations = patternCodeToEvaluations(pattern);
-    const nextTiles = row.tiles.map((tile, idx) => ({
-      letter: guess[idx],
-      state: evaluations[idx],
-      flipDelay: idx * 120,
-    }));
-
-    setRows((prev) =>
-      prev.map((existing, idx) =>
-        idx === currentRowIndex
-          ? {
-            tiles: nextTiles,
-            committed: true,
-            patternCode: pattern,
-          }
-          : existing,
-      ),
-    );
-
-    setKeyboard((prev) => mergeKeyboardState(prev, guess, evaluations));
-
-    if (evaluations.every((e) => e === "correct")) {
-      setStatus("won");
-      setMessage("Керемет! Сіз таптыңыз.");
-      return;
-    }
-
-    const nextRowIndex = currentRowIndex + 1;
-    if (nextRowIndex >= WORDLE_MAX_ATTEMPTS) {
-      setStatus("lost");
-      setMessage(`Жауап: ${secret.toUpperCase()}`);
-      return;
-    }
-    setCurrentRowIndex(nextRowIndex);
-    setMessage(null);
-  }, [status, rows, currentRowIndex, secret, updateRow]);
+  }, [status, rows, currentRowIndex, commitGuess, updateRow]);
 
   const resetGame = useCallback(
     (nextSecret?: string) => {
@@ -238,6 +289,7 @@ export function useGameEngine(initialSecret?: string): GameEngineControls {
     addLetter,
     removeLetter,
     submitGuess,
+    commitGuess,
     resetGame,
   };
 }

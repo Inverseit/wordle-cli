@@ -1,4 +1,4 @@
-import { decodeBase3, WORD_LENGTH } from "./coreClient";
+import { decodeBase3, WORD_LENGTH } from "@wordle/core/browser";
 import type { TileEvaluation } from "./types";
 
 export function patternCodeToEvaluations(code: number): TileEvaluation[] {

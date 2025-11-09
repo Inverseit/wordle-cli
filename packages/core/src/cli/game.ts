@@ -12,12 +12,13 @@ import {
   HardcoreSolver,
   FullEntropySolver,
   feedbackCode,
-  PatternCache,
   parsePatternString,
   humanPattern,
   sha256,
   type SolverContext,
+  createPatternCacheProvider,
 } from "../lib/index.js";
+import { PatternCache } from "../lib/pattern.js";
 
 export async function precomputePatterns(
   allWords: string[],
@@ -48,6 +49,9 @@ export async function runGame(
   const allIndices = allWords.map((_, i) => i);
   const wordIndexByString = new Map<string, number>(allWords.map((w, i) => [w, i]));
   const wordHash = sha256(JSON.stringify({ len: allWords.length, words: allWords }));
+  const patternDir = cacheDir ? `${cacheDir}/patterns` : undefined;
+  const patternProviderFactory = () =>
+    createPatternCacheProvider(allWords, wordHash, patternDir);
 
   // If auto mode is used, ensure the secret exists
   if (secret && !wordIndexByString.has(secret)) {
@@ -73,6 +77,8 @@ export async function runGame(
       recompute,
       maxWorkers: maxWorkers > 0 ? maxWorkers : 16,
       cacheDir,
+      patternDir,
+      patternProviderFactory,
     };
 
     const { guessIndex, entropy } = await solver.nextGuess(ctx);

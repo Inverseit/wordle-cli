@@ -1,4 +1,4 @@
-import { PatternCache } from "./pattern.js";
+import type { PatternProvider } from "./patternProvider.js";
 
 export function entropyForGuessRow(
   row: Uint16Array,
@@ -21,10 +21,10 @@ export function entropyForGuessRow(
 
 export function entropyForGuess(
   guess: string,
-  cache: PatternCache,
+  provider: PatternProvider,
   candidateIdx: number[],
   force: boolean
 ): number {
-  const row = cache.getRow(guess, force);
+  const row = provider.getRow(guess, force);
   return entropyForGuessRow(row, candidateIdx);
 }
