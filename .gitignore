@@ -7,7 +7,7 @@ node_modules/
 pnpm-lock.yaml
 
 # Ignore cache folder
-cache/patterns/*
+**/cache/patterns/*
 
 # Workspace build outputs
 packages/*/dist/
