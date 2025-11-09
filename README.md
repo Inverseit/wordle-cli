@@ -1,7 +1,6 @@
-
 # Wordle(6) Entropy Solver — Bilingual README (English / Қазақша)
 
-> Clean, type‑safe, high‑performance Wordle(6) solver in TypeScript (Node.js, ESM), featuring switchable strategies, multi‑core entropy evaluation, and a disk‑backed feedback pattern cache.
+> Type-safe Wordle(6) entropy solver for the Kazakh lexicon, delivered as a Node.js ESM CLI and reusable TS library with a disk-backed feedback cache.
 
 ---
 
@@ -10,22 +9,24 @@
 - [English](#english)
   - [Overview](#overview)
   - [Mathematical Foundations](#mathematical-foundations)
-  - [Architecture](#architecture)
-  - [Pattern Computation & Caching](#pattern-computation--caching)
-  - [Solvers & Strategies](#solvers--strategies)
+  - [Project Layout](#project-layout)
+  - [Installation & Scripts](#installation--scripts)
   - [CLI Usage](#cli-usage)
-  - [Performance & Multicore](#performance--multicore)
-  - [Extending to the Web](#extending-to-the-web)
+  - [Pattern Cache & Entropy](#pattern-cache--entropy)
+  - [Solvers](#solvers)
+  - [Dictionary & Localization](#dictionary--localization)
+  - [Development Notes](#development-notes)
   - [References](#references)
 - [Қазақша](#қазақша)
   - [Шолу](#шолу)
   - [Математикалық Негіздеме](#математикалық-негіздеме)
-  - [Архитектура](#архитектура)
-  - [Үлгі (pattern) Есептеу және Кэштеу](#үлгі-pattern-есептеу-және-кэштеу)
-  - [Шешушілер (Solver) және Стратегиялар](#шешушілер-solver-және-стратегиялар)
+  - [Жоба Құрылымы](#жоба-құрылымы)
+  - [Орнату және Скрипттер](#орнату-және-скрипттер)
   - [CLI Қолданылуы](#cli-қолданылуы)
-  - [Өнімділік және Көп‑ядролық өңдеу](#өнімділік-және-көп‑ядролық-өңдеу)
-  - [Вебке Кеңейту](#вебке-кеңейту)
+  - [Үлгі Кэші және Энтропия](#үлгі-кэші-және-энтропия)
+  - [Шешушілер](#шешушілер)
+  - [Сөздік және Локализация](#сөздік-және-локализация)
+  - [Даму Ескертпелері](#даму-ескерпелері)
   - [Пайдаланылған Әдебиеттер](#пайдаланылған-әдебиеттер)
 
 ---
@@ -34,154 +35,126 @@
 
 ### Overview
 
-This repository implements an **information‑theoretic Wordle solver** for a **6‑letter** variant in **TypeScript** (Node.js, ESM). It provides:
-
-- Two interchangeable solvers via a common interface:
-  - **HardcoreSolver** — guesses only from the **remaining candidate** set.
-  - **FullEntropySolver** — guesses from **all allowed words** to **maximize expected information gain** (entropy).
-- A **multi‑core** entropy evaluation pipeline using `worker_threads`.
-- A **disk‑backed pattern cache** (per‑guess, per‑dictionary) storing `{guess × target} → feedback` as compact `Uint16Array` rows.
-
-Assumptions:
-- You have a list of valid **6‑letter words** (lowercase). Put it in `src/wordlist.ts`.
-- We run as a **CLI** (console) for now. Web UI comes later.
+- NodeNext ESM TypeScript project targeting six-letter Wordle puzzles.
+- Ships both a CLI (`src/cli`) and a library surface (`src/lib/index.ts`) for reuse.
+- Uses a disk-backed `PatternCache` keyed by the SHA-256 of the active dictionary.
+- Includes two entropy-driven strategies: candidate-only and full-word probing.
+- Bundles a Kazakh six-letter dictionary (`src/lib/wordlist.ts`) by default.
+- Supports interactive play, automated simulation, and offline precomputation.
 
 ### Mathematical Foundations
 
 We use **Shannon entropy** to pick guesses that reduce uncertainty the most on average.
 
-- Let the secret word be a random variable \(X\) over the current **candidate set** \(C\), \(|C| = N\). If uniform, initial entropy is \(H(X) = \log_2 N\).  
+- Let the secret word be a random variable $X$ over the current **candidate set** $C$, $|C| = N$. If uniform, initial entropy is $H(X) = \log_2 N$.  
   - Shannon, C. E. (1948). *A Mathematical Theory of Communication*. [Wikipedia](https://en.wikipedia.org/wiki/Information_theory)
-- For a fixed guess \(g\), the Wordle feedback is a random variable \(Y\) over the set of **feedback patterns** (for 6 letters, at most \(3^6 = 729\)).  
+- For a fixed guess $g$, the Wordle feedback is a random variable $Y$ over the set of **feedback patterns** (for 6 letters, at most $3^6 = 729$).  
   - Pattern digits: **0** = gray, **1** = yellow, **2** = green.
-- The **expected information gain (EIG)** of \(g\) equals the **mutual information** \(I(X;Y) = H(Y)\):  
-  \[
-    H(Y) = -\sum_{p} P(p)\,\log_2 P(p), \quad
-    P(p) = \frac{N_p}{N}
-  \]
-  where \(N_p\) is the number of candidates that would yield pattern \(p\) for guess \(g\).  
+- The **expected information gain (EIG)** of $g$ equals the **mutual information** $I(X;Y) = H(Y)$:  
+  $$
+  H(Y) = -\sum_{p} P(p)\,\log_2 P(p), \quad
+  P(p) = \frac{N_p}{N}
+  $$
+  where $N_p$ is the number of candidates that would yield pattern $p$ for guess $g$.  
   - Entropy / Mutual information: [Wikipedia](https://en.wikipedia.org/wiki/Entropy_(information_theory)), [Mutual information](https://en.wikipedia.org/wiki/Mutual_information).
 - Equivalent form via expected posterior entropy:  
-  \[
-    \mathrm{EIG}(g) = \log_2 N - \sum_{p} \frac{N_p}{N}\,\log_2 N_p
-  \]
+  $$
+  \mathrm{EIG}(g) = \log_2 N - \sum_{p} \frac{N_p}{N}\,\log_2 N_p
+  $$
 
-**Deterministic feedback rule**: two‑pass scoring (greens, then yellows) using remaining letter frequencies to handle duplicates correctly (same as Wordle). See [Mastermind](https://en.wikipedia.org/wiki/Mastermind_(board_game)) for related search principles.
+**Deterministic feedback rule**: two-pass scoring (greens first, then yellows) using remaining letter frequencies to handle duplicates correctly (same as Wordle). See [Mastermind](https://en.wikipedia.org/wiki/Mastermind_(board_game)) for related search principles.
 
-### Architecture
+### Project Layout
 
 ```
 src/
-  index.ts                 # CLI entry (ESM); interactive loop or --auto
-  config.ts                # constants (WORD_LENGTH, cache paths)
-  types.ts                 # core types & solver interfaces
-  wordlist.ts              # your 6-letter dictionary (string[])
-  pattern.ts               # feedback logic + disk-backed pattern cache
-  entropy.ts               # H(Y) for a guess against current candidates
-  solvers/
-    BaseSolver.ts          # shared multicore evaluation
-    HardcoreSolver.ts      # guesses ∈ candidates
-    FullEntropySolver.ts   # guesses ∈ allWords
-  worker/
-    entropyWorker.ts       # worker_threads: parallel entropy evaluation
-  utils.ts                 # hashing, base-3 encode/decode, etc.
+  cli/
+    args.ts          # parses --mode, --precompute, --cache-dir, ...
+    game.ts          # interactive loop, auto simulation, precompute helper
+    index.ts         # CLI entrypoint with shebang
+  lib/
+    config.ts        # WORD_LENGTH, default cache paths
+    entropy.ts       # Shannon entropy helpers operating on pattern rows
+    index.ts         # library barrel (public exports)
+    pattern.ts       # feedbackCode + PatternCache (Uint16 rows on disk)
+    solvers/
+      BaseSolver.ts        # shared evaluation logic with chunked execution
+      HardcoreSolver.ts    # guesses restricted to current candidates
+      FullEntropySolver.ts # guesses across the full allowed list
+    types.ts         # SolverContext, PatternCode, GuessEval interfaces
+    utils.ts         # hashing, base-3 encoding, human-readable patterns
+    wordlist.ts      # six-letter Kazakh dictionary (WORDS array)
 cache/
-  patterns/                # *.bin rows: one file per guess per dictionary hash
+  patterns/          # created on demand; stores <guess>.<dictHash>.bin rows
+tsconfig.json        # ES2022 target, NodeNext module resolver, src rootDir
+package.json         # scripts (dev/solve/precompute) and ESM exports
 ```
 
-**Key interfaces** (`src/types.ts`):
-- `Solver` with `nextGuess(ctx): Promise<{ guessIndex, entropy }>`
-- `SolverContext` provides word lists, candidate indices, cache hash, flags
+### Installation & Scripts
 
-### Pattern Computation & Caching
-
-- **Feedback encoding**: base‑3 code over 6 digits (0/1/2) → integer in `[0, 728]`.
-- **`feedbackCode(guess, target)`**:  
-  1) Count `target` letter frequencies.  
-  2) Mark greens; decrement freq.  
-  3) Mark yellows where freq>0; decrement.  
-  4) Encode `[d0..d5]` in base‑3.
-- **Cache format**: **per‑guess row**: `Uint16Array` of length `|allWords|`, stored in `cache/patterns/<guess>.<dictHash>.bin`. This yields **O(1)** lookup for `pattern = row[targetIndex]` and enables **fast entropy** computation via counting.
-
-**Why per‑guess rows?**
-- Memory locality and simplicity: entropy for a guess touches its row linearly over candidate indices.
-- Disk cost: for `N` words, each row ~ `2N` bytes. Total worst‑case ~ `2N^2` bytes if you precompute all rows; usually generated **on demand** or via `--precompute` once.
-
-### Solvers & Strategies
-
-- **HardcoreSolver** (candidate‑only):  
-  - Guess universe \(G = C\).  
-  - Pros: every guess can be the answer.  
-  - Cons: can be slightly worse on average (less info early).
-
-- **FullEntropySolver** (all‑words):  
-  - Guess universe \(G = \text{allWords}\).  
-  - Pros: maximal expected information; reduces branching in “trap” clusters.  
-  - Cons: some guesses cannot be the answer (pure probes).
-
-**Strategy notes**:
-- Entropy optimizes expected case. Minimax (worst‑case bucket size) is another criterion; both are classic in Mastermind/Wordle research.
-- Hybrid: entropy while \(|C|\) is large, then candidate‑only when small, or a weighted score `α·entropy + β·isCandidate`.
+- `pnpm install` (or `npm install` / `yarn` if you prefer).
+- `pnpm dev -- --mode=hardcore` runs the TypeScript CLI via `tsx`.
+- `pnpm solve` uses hardcore mode; `pnpm solve:full` uses full entropy mode.
+- `pnpm precompute` walks the dictionary and saves every pattern row to disk.
+- `pnpm build` emits `dist/`; `pnpm start` executes the compiled CLI.
+- When forwarding flags through package scripts, prefix CLI args with `--`.
 
 ### CLI Usage
 
-Install & run (Node 18+ recommended):
+- `--mode=hardcore|full` picks the solver (default `hardcore`).
+- `--precompute` generates all `{guess × target}` rows and exits.
+- `--recompute` forces regeneration even if a cached row already exists.
+- `--auto=<word>` simulates against a known answer from the dictionary.
+- `--cache-dir=<path>` overrides the root cache directory (default `cache`).
+- `--max-workers=<n>` splits the guess set into `n` async chunks (default autodetect clamped to CPU count; currently executes on the main thread).
+- Manual feedback input expects a six-digit string of `0` (⬜), `1` (🟨), `2` (🟩).
+
+Examples:
 
 ```bash
-pnpm i           # or npm i / yarn
-pnpm build       # emit dist (optional for dev with ts-node/esm)
+pnpm dev -- --mode=full
+pnpm dev -- --mode=hardcore --auto=абайла
+pnpm precompute -- --cache-dir=.cache --recompute
+pnpm start -- --mode=full --cache-dir=.cache
+pnpm solve        # uses hardcore mode
+pnpm solve:full   # uses full entropy mode
 ```
 
-Dev / ESM loader (example scripts):
-```bash
-# Precompute all pattern rows (optional but speeds up first runs)
-node --loader ts-node/esm src/index.ts --precompute
+### Pattern Cache & Entropy
 
-# Interactive solving (you type feedback as 6 digits 0/1/2)
-node --loader ts-node/esm src/index.ts --mode=full
-node --loader ts-node/esm src/index.ts --mode=hardcore
+- `feedbackCode` performs two-pass Wordle scoring (greens first, then yellows) and encodes the result in base-3 as an integer in `[0, 728]`.
+- `PatternCache` stores a `Uint16Array` per guess where `row[targetIndex]` is the feedback code; files live at `cache/patterns/<guess>.<dictHash>.bin`.
+- The dictionary signature is `sha256(JSON.stringify({ len, words }))`, so any change to `WORDS` triggers new cache files.
+- `entropyForGuess` reuses the cached row to compute Shannon entropy over the remaining candidate indices.
+- `pnpm precompute` iterates every allowed word, materialising rows to warm the cache ahead of gameplay or benchmarking.
 
-# Simulate vs a known secret (must exist in wordlist)
-node --loader ts-node/esm src/index.ts --mode=hardcore --auto=planet
-```
+### Solvers
 
-Flags:
-- `--mode=hardcore|full` — choose solver
-- `--precompute` — generate all rows and exit
-- `--recompute` — force regenerate rows even if present
-- `--max-workers=8` — override auto worker count
-- `--auto=<word>` — simulate; feedback auto‑computed
+- **HardcoreSolver**: guesses only within the current candidate subset so every suggestion can be the answer.
+- **FullEntropySolver**: considers all allowed words, maximising expected information even if some guesses are probes.
+- Both extend `BaseSolver`, which chunks the guess list and evaluates entropy synchronously (ready for future worker-thread offloading).
 
-**Entering feedback manually**: input a 6‑digit string (e.g., `120012`) where `0=⬜`, `1=🟨`, `2=🟩`.
+### Dictionary & Localization
 
-### Performance & Multicore
+- `WORDS` lives in `src/lib/wordlist.ts` and currently contains a Kazakh six-letter lexicon.
+- Replace or regenerate this array to support another language; keep everything lowercase and length=`WORD_LENGTH`.
+- Updating the dictionary requires a rebuild (`pnpm build`) or rerunning the CLI so that caches and the compiled output stay in sync.
+- `WORD_LENGTH` is centralised in `src/lib/config.ts`; change with caution and update the dictionary accordingly.
 
-- Entropy for one guess is a histogram over patterns for all candidates: \(O(|C|)\) with precomputed row.
-- Choosing a best guess over a set \(G\) is \(O(|G|\cdot|C|)\) per turn; we **parallelize** across guesses with `worker_threads`:
-  - Main splits `G` into chunks, each worker computes local best.
-  - Workers use the same **PatternCache** lazily; rows are loaded/generated per guess.
-- Micro‑optimizations:
-  - Heuristic prefilter (e.g., letter frequency) to shrink \(G\) when large.
-  - Early‑exit if an entropy approaches a theoretical ceiling.
-  - Persist rows once; reuse across sessions by dictionary hash.
+### Development Notes
 
-### Extending to the Web
-
-- Replace `worker_threads` with **Web Workers** + Rollup/Vite build.
-- Shared logic stays: `feedbackCode`, row format, entropy, solver interfaces.
-- Add a small UI for feedback input (buttons) and candidates display.
+- Requires Node.js 18+ for the built-in `node:readline/promises` API and stable ESM support.
+- TypeScript compiler targets ES2022 with `"moduleResolution": "NodeNext"`; source lives under `src`, emitted files land in `dist`.
+- Library consumers can import from `kaz-wordle6-solver/lib` after building (`package.json` exports both JS and `.d.ts` bundles).
+- Cache writes are atomic (`writeAtomic`) to avoid truncation on crashes; ensure the cache directory is writable.
+- Although `maxWorkers` chunks the workload into parallel async tasks, entropy evaluation currently runs on the main thread; wiring an actual worker pool with `worker_threads` is a future improvement.
 
 ### References
 
-- Shannon entropy & information theory:  
-  - https://en.wikipedia.org/wiki/Information_theory  
-  - https://en.wikipedia.org/wiki/Entropy_(information_theory)  
-  - https://en.wikipedia.org/wiki/Mutual_information
-- Mastermind/Wordle analysis (background):  
-  - https://en.wikipedia.org/wiki/Mastermind_(board_game)  
-  - Knuth’s algorithm for Mastermind (minimax): https://doi.org/10.1145/361604.361612
-- Wordle specifics (feedback logic, duplicates):  
-  - https://en.wikipedia.org/wiki/Wordle
+- Shannon, C. E. (1948). *A Mathematical Theory of Communication*. https://en.wikipedia.org/wiki/Information_theory
+- Entropy and mutual information basics: https://en.wikipedia.org/wiki/Entropy_(information_theory)
+- Mastermind heuristics and worst-case search: https://en.wikipedia.org/wiki/Mastermind_(board_game)
+- Wordle rules and duplicate-handling details: https://en.wikipedia.org/wiki/Wordle
 
 ---
 
@@ -189,151 +162,129 @@ Flags:
 
 ### Шолу
 
-Бұл репозиторий **6 әріпті Wordle** ойынына арналған **ақпараттық‑теориялық шешушіні** (solver) **TypeScript** (Node.js, ESM) тілінде іске асырады. Негізгі мүмкіндіктер:
-
-- Жалпы интерфейс арқылы ауыстырылатын екі шешуші:
-  - **HardcoreSolver** — тек **қалған кандидаттар** ішінен жорамалдайды.
-  - **FullEntropySolver** — **барлық рұқсат етілген сөздерден** таңдап, **ақпараттың күтілетін ұтысын** (энтропия) максимизациялайды.
-- `worker_threads` негізінде **көп‑ядролы** энтропия есептеу.
-- `{guess × target} → feedback` нәтижелерін **Uint16Array** қатарлары ретінде сақтайтын **дискте кэш** (әр болжамға бір файл, сөздік хэшіне байланған).
-
-Алғышарттар:
-- Сізде **6 әріпті** дұрыс сөздердің (lowercase) тізімі бар — `src/wordlist.ts` файлына орналастырыңыз.
-- Қазіргі нұсқа — **CLI** (консоль). Веб UI кейін қосылады.
+- NodeNext ESM пішіміндегі TypeScript жобасы алты әріпті Wordle есептеріне бағытталған.
+- CLI (`src/cli`) және қайта пайдалануға болатын кітапхана интерфейсі (`src/lib/index.ts`) бірге жеткізіледі.
+- Әр сөздікке арналған SHA-256 хэш арқылы байланыстыратын дискілік `PatternCache` қолданады.
+- Екі энтропиялық стратегия бар: тек кандидаттар және толық сөздер бойынша барлау.
+- Әдепкіде `src/lib/wordlist.ts` файлы Kazakh алты әріпті сөздігін қамтиды.
+- Интерактивті ойын, автоматты симуляция және офлайн алдын ала есептеу қолжетімді.
 
 ### Математикалық Негіздеме
 
 Біздің мақсат — орташа есеппен белгісіздікті ең көп азайтатын жорамалдарды таңдау. Ол үшін **Шеннон энтропиясы** қолданылады.
 
-- Құпия сөз \(X\) — ағымдағы **кандидат** жиынындағы кездейсоқ айнымалы, \(|C| = N\). Біртекті жағдайда бастапқы энтропия \(H(X) = \log_2 N\).  
-  - Шеннон ақпарт теориясы: [Wikipedia](https://kk.wikipedia.org/wiki/%D0%90%D2%9B%D0%BF%D0%B0%D1%80%D0%B0%D1%82_%D1%82%D0%B5%D0%BE%D1%80%D0%B8%D1%8F%D1%81%D1%8B) / [EN](https://en.wikipedia.org/wiki/Information_theory)
-- Белгілі бір жорамал \(g\) үшін Wordle‑дің кері байланысы \(Y\) — **үлгілер** жиынына таралған айнымалы (6 әріп → максимум \(3^6 = 729\) үлгі).  
+- Құпия сөз $X$ — ағымдағы **кандидат** жиынындағы кездейсоқ айнымалы, $|C| = N$. Біртекті жағдайда бастапқы энтропия $H(X) = \log_2 N$.  
+  - Шеннон ақпарат теориясы: [Wikipedia](https://kk.wikipedia.org/wiki/%D0%90%D2%9B%D0%BF%D0%B0%D1%80%D0%B0%D1%82_%D1%82%D0%B5%D0%BE%D1%80%D0%B8%D1%8F%D1%81%D1%8B) / [EN](https://en.wikipedia.org/wiki/Information_theory)
+- Белгілі бір жорамал $g$ үшін Wordle-дің кері байланысы $Y$ — **үлгілер** жиынына таралған айнымалы (6 әріп → максимум $3^6 = 729$ үлгі).  
   - Цифрлар: **0** = сұр, **1** = сары, **2** = жасыл.
-- **Күтілетін ақпарат ұтысы** \(I(X;Y) = H(Y)\):  
-  \[
-    H(Y) = -\sum_{p} P(p)\,\log_2 P(p), \quad
-    P(p) = \frac{N_p}{N}
-  \]
-  мұндағы \(N_p\) — \(g\) жорамалы үшін үлгінің \(p\) шығуына себеп болатын кандидаттар саны.  
+- **Күтілетін ақпарат ұтысы** $I(X;Y) = H(Y)$:  
+  $$
+  H(Y) = -\sum_{p} P(p)\,\log_2 P(p), \quad
+  P(p) = \frac{N_p}{N}
+  $$
+  мұндағы $N_p$ — $g$ жорамалы үшін үлгінің $p$ шығуына себеп болатын кандидаттар саны.  
   - Энтропия, өзара ақпарат: [EN](https://en.wikipedia.org/wiki/Entropy_(information_theory)), [Mutual information](https://en.wikipedia.org/wiki/Mutual_information).
 - Баламалы түрі:  
-  \[
-    \mathrm{EIG}(g) = \log_2 N - \sum_{p} \frac{N_p}{N}\,\log_2 N_p
-  \]
+  $$
+  \mathrm{EIG}(g) = \log_2 N - \sum_{p} \frac{N_p}{N}\,\log_2 N_p
+  $$
 
 **Детерминистік бағалау ережесі**: екі өтімді әдіс (алдымен жасыл, кейін сары), қайталанатын әріптерге арналған жиілік азайту логикасымен. [Mastermind](https://kk.wikipedia.org/wiki/Mastermind_(%D0%BE%D0%B9%D1%8B%D0%BD)) ойынындағы ұқсас қағидалармен байланысты.
 
-### Архитектура
+### Жоба Құрылымы
 
 ```
 src/
-  index.ts                 # CLI (ESM); интерактивті цикл немесе --auto
-  config.ts                # константалар (WORD_LENGTH, кэш жолдары)
-  types.ts                 # типтер және интерфейстер
-  wordlist.ts              # 6 әріпті сөздік (string[])
-  pattern.ts               # feedback логикасы + дисктегі кэш
-  entropy.ts               # H(Y) есептеу (энтропия)
-  solvers/
-    BaseSolver.ts          # ортақ көп‑ядролық бағалау
-    HardcoreSolver.ts      # жорамал ∈ кандидаттар
-    FullEntropySolver.ts   # жорамал ∈ барлық сөздер
-  worker/
-    entropyWorker.ts       # worker_threads: параллель энтропия
-  utils.ts                 # хэш, 3‑тік кодтау, т.б.
+  cli/
+    args.ts          # --mode, --precompute, --cache-dir жалаушаларын талдау
+    game.ts          # интерактивті цикл, авто режим, алдын ала есептеу
+    index.ts         # CLI кіру нүктесі (shebang)
+  lib/
+    config.ts        # WORD_LENGTH, әдепкі кэш жолдары
+    entropy.ts       # үлгі қатарларымен жұмыс істейтін Шеннон энтропиясы
+    index.ts         # кітапхана экспорттары
+    pattern.ts       # feedbackCode + PatternCache (Uint16 қатарлары)
+    solvers/
+      BaseSolver.ts        # ортақ бағалау логикасы (чанктерге бөлу)
+      HardcoreSolver.ts    # тек кандидаттардан жорамалдайды
+      FullEntropySolver.ts # барлық сөздерден жорамал жасайды
+    types.ts         # SolverContext, PatternCode, GuessEval интерфейстері
+    utils.ts         # хэштеу, 3-тік кодтау, адамға түсінікті үлгі
+    wordlist.ts      # Kazakh алты әріпті сөздік (WORDS массиві)
 cache/
-  patterns/                # *.bin қатарлар: әр жорамалға, сөздік хэшіне байланған
+  patterns/          # сұраныс бойынша жасалады; <guess>.<dictHash>.bin файлдары
+tsconfig.json        # ES2022 нысана, NodeNext модуль рұқсаты, src түбірі
+package.json         # скрипттер (dev/solve/precompute) және ESM экспорттары
 ```
 
-**Негізгі интерфейстер** (`src/types.ts`):
-- `Solver` (`nextGuess(ctx)` → `{ guessIndex, entropy }`)
-- `SolverContext` — сөз тізімдері, кандидат индекстері, кэш хэші, т.б.
+### Орнату және Скрипттер
 
-### Үлгі (pattern) Есептеу және Кэштеу
-
-- **Кодтау**: 6 цифрдан тұратын 3‑тік код (0/1/2) → `[0..728]` бүтін.
-- **`feedbackCode(guess, target)`**:  
-  1) `target` әріп жиіліктерін санау;  
-  2) жасылдарды белгілеу, жиілікті азайту;  
-  3) сарыны freq>0 болса белгілеу; жиілікті азайту;  
-  4) `[d0..d5]` 3‑тікке жинақтау.
-- **Кэш форматы**: **жорамал‑қатары**: ұзындығы `|allWords|` болатын `Uint16Array`, `cache/patterns/<guess>.<dictHash>.bin` файлында. Бұл O(1) қолжетімділік береді және энтропияны санауды жылдамдатады (жиілік гистограммасы).
-
-**Неліктен жорамал бойынша қатарлар?**
-- Жады локальдығы және қарапайымдылық: энтропия \(g\) үшін кандидат индекстері бойынша тікелей бір қатарды оқиды.
-- Диск құны: әр қатар ~ `2N` байт; толық алдын‑ала есептеу `~2N^2` байтқа дейін барады — сондықтан **сұраныс бойынша** немесе бір рет `--precompute` арқылы жасау ұсынылады.
-
-### Шешушілер (Solver) және Стратегиялар
-
-- **HardcoreSolver** (тек кандидаттар):  
-  - Жорамал жиыны \(G = C\).  
-  - Артықшылығы: кез келген жорамал — жауап болуы мүмкін.  
-  - Кемшілігі: бастапқы айналымдарда ақпарат аздау болуы мүмкін.
-
-- **FullEntropySolver** (барлық сөздер):  
-  - Жорамал жиыны \(G = \text{allWords}\).  
-  - Артықшылығы: күтілетін ақпарат максимум; “ұқсас сөздер тұзағын” тез бұзады.  
-  - Кемшілігі: кейбір жорамалдар ешқашан жауап болмайды (таза ақпарат жинау).
-
-**Стратегия ескертпелері**:
-- Энтропия — орташа жағдайды оңтайландырады. Минимакс — ең жаман бөлік өлшемін азайтуға бағытталған альтернатива.
-- Гибрид: \(|C|\) үлкен кезде энтропия, азайғанда кандидат‑тек немесе салмақталған `α·entropy + β·isCandidate`.
+- `pnpm install` (немесе `npm install` / `yarn` пайдаланыңыз).
+- `pnpm dev -- --mode=hardcore` CLI-ді `tsx` арқылы TypeScript күйінде іске қосады.
+- `pnpm solve` hardcore режимін, `pnpm solve:full` толық энтропия режимін қолданады.
+- `pnpm precompute` барлық үлгі қатарларын алдын ала есептеп, дискіге жазады.
+- `pnpm build` → `dist/`, `pnpm start` → құрастырылған CLI-ді іске қосу.
+- Пакет скрипттері арқылы аргумент жібергенде `--` қойып, одан кейін CLI жалаушаларын жазыңыз.
 
 ### CLI Қолданылуы
 
-Орнату және іске қосу:
+- `--mode=hardcore|full` шешушіні таңдайды (әдепкі `hardcore`).
+- `--precompute` барлық `{guess × target}` қатарларын жасап, бағдарламаны тоқтатады.
+- `--recompute` файл бар болса да қайта генерация жасайды.
+- `--auto=<word>` сөздікке кіретін белгілі құпиямен симуляция жүргізеді.
+- `--cache-dir=<path>` кэш түбірін ауыстырады (әдепкі `cache`).
+- `--max-workers=<n>` жорамал жиынын `n` асинхронды чанктерге бөледі (әдепкі CPU санына дейін; ағымдағы нұсқада есептеу негізгі ағынға жүктеледі).
+- Қолмен feedback енгізгенде `0` (⬜), `1` (🟨), `2` (🟩) цифрларынан тұратын алты таңбалы жол күтіледі.
+
+Мысалдар:
 
 ```bash
-pnpm i
-# Барлық қатарларды алдын-ала есептеу (міндетті емес)
-node --loader ts-node/esm src/index.ts --precompute
-
-# Интерактивті шешу (үлгіні 6 цифрмен енгізесіз)
-node --loader ts-node/esm src/index.ts --mode=full
-node --loader ts-node/esm src/index.ts --mode=hardcore
-
-# Белгілі құпиямен симуляция
-node --loader ts-node/esm src/index.ts --mode=hardcore --auto=planet
+pnpm dev -- --mode=full
+pnpm dev -- --mode=hardcore --auto=абайла
+pnpm precompute -- --cache-dir=.cache --recompute
+pnpm start -- --mode=full --cache-dir=.cache
+pnpm solve        # hardcore режимін қолданады
+pnpm solve:full   # толық энтропия режимін қолданады
 ```
 
-Параметрлер:
-- `--mode=hardcore|full` — шешушіні таңдау
-- `--precompute` — барлық қатарларды құрып, шығу
-- `--recompute` — файл бар болса да қайта құру
-- `--max-workers=8` — worker санын орнату
-- `--auto=<word>` — симуляция (feedback автоматты түрде есептеледі)
+### Үлгі Кэші және Энтропия
 
-**Қолмен feedback енгізу**: 6 цифр (мысалы, `120012`), мұнда `0=⬜`, `1=🟨`, `2=🟩`.
+- `feedbackCode` Wordle ережесі бойынша екі өтімді бағалау жасайды (алдымен жасыл, кейін сары) және нәтижені `[0, 728]` диапазонында 3-тік кодқа айналдырады.
+- `PatternCache` әр жорамал үшін `Uint16Array` қатарын сақтайды; `row[targetIndex]` — сол мақсатқа арналған код. Файлдар `cache/patterns/<guess>.<dictHash>.bin` түрінде жазылады.
+- Сөздік сигнатурасы `sha256(JSON.stringify({ len, words }))`; `WORDS` өзгерсе, кэш автоматты түрде жаңадан құрылады.
+- `entropyForGuess` дайын қатарды қолданып, қалған кандидаттар бойынша Шеннон энтропиясын есептейді.
+- `pnpm precompute` барлық қатарды алдын ала құрып, кейінгі ойындарды және тесттерді жеделдетеді.
 
-### Өнімділік және Көп‑ядролық өңдеу
+### Шешушілер
 
-- Бір жорамалдың энтропиясы — кандидаттар бойынша үлгі гистограммасы: алдын‑ала қатар бар болса \(O(|C|)\).
-- Ең жақсы жорамал таңдау \(O(|G|\cdot|C|)\) — біз мұны `worker_threads` арқылы **параллель** орындаймыз.
-- Оптимизациялар:
-  - Евристикалық алдын ала сүзгі (әріп жиілігі) — \(G\) көлемін азайту.
-  - Теориялық шекке жақындаса, ерте тоқтату.
-  - Қатарларды бір рет жасап, сөздік хэшімен қайта қолдану.
+- **HardcoreSolver**: тек ағымдағы кандидаттар ішінен жорамалдайды, сондықтан әр ұсыныс нақты жауап болуы мүмкін.
+- **FullEntropySolver**: барлық рұқсат етілген сөздермен жұмыс істейді, күтілетін ақпаратты максималдау үшін зерттеу жорамалдарын пайдаланады.
+- Екі класс та `BaseSolver`-ді кеңейтеді; қазіргі нұсқа чанктерді синхронды орындаса да, архитектура болашақта worker thread енгізуге дайын.
 
-### Вебке Кеңейту
+### Сөздік және Локализация
 
-- `worker_threads` орнына **Web Worker** қолдану.
-- Ортақ логика өзгермейді: `feedbackCode`, қатар форматы, энтропия, интерфейстер.
-- Пайдаланушы интерфейсін (батырмалар, кандидат тізімі) қосу жеткілікті.
+- `WORDS` массиві `src/lib/wordlist.ts` ішінде орналасқан, қазір Kazakh алты әріпті сөздері енгізілген.
+- Басқа тілге көшу үшін осы массивті ауыстырыңыз немесе генерациялаңыз; барлық сөздер кіші әріппен жазылып, ұзындығы `WORD_LENGTH` болуы тиіс.
+- Сөздік жаңартылғаннан кейін CLI-ді қайта қосып немесе `pnpm build` жасап, кэш пен компиляцияланған файлдарды жаңартыңыз.
+- `WORD_LENGTH` мәні `src/lib/config.ts` ішінде; өзгертсеңіз, барлық модульдер мен сөздікпен үйлестіру қажет.
+
+### Даму Ескертпелері
+
+- Node.js 18+ нұсқасы керек (`node:readline/promises` API және тұрақты ESM үшін).
+- TypeScript компиляторы ES2022-ге бағытталған; бастапқы код `src/` ішінде, нәтижесі `dist/` қалтасына шығады.
+- Құрастырғаннан кейін кітапхананы `kaz-wordle6-solver/lib` атауымен импорттауға болады (`package.json` JS және `.d.ts` экспорттарын береді).
+- Кэш жазбалары атомарлы (`writeAtomic`), сондықтан каталогтың жазуға рұқсаты барын тексеріңіз.
+- `maxWorkers` жұмысты параллель асинхронды тапсырмаларға бөлсе де, энтропия бағалауы қазіргі уақытта негізгі ағында орындалады; `worker_threads` арқылы шынайы worker пулын қосу болашақта жоспарлануда.
 
 ### Пайдаланылған Әдебиеттер
 
-- Шеннон энтропиясы және ақпарат теориясы:  
-  - https://kk.wikipedia.org/wiki/%D0%90%D2%9B%D0%BF%D0%B0%D1%80%D0%B0%D1%82_%D1%82%D0%B5%D0%BE%D1%80%D0%B8%D1%8F%D1%81%D1%8B  
-  - https://en.wikipedia.org/wiki/Information_theory  
-  - https://en.wikipedia.org/wiki/Entropy_(information_theory)  
-  - https://en.wikipedia.org/wiki/Mutual_information
-- Mastermind/Wordle талдауы:  
-  - https://kk.wikipedia.org/wiki/Mastermind_(%D0%BE%D0%B9%D1%8B%D0%BD)  
-  - https://en.wikipedia.org/wiki/Mastermind_(board_game)
-- Wordle ережелері (қайталанатын әріптерді бағалау):  
-  - https://en.wikipedia.org/wiki/Wordle
+- Shannon энтропиясы: https://kk.wikipedia.org/wiki/%D0%90%D2%9B%D0%BF%D0%B0%D1%80%D0%B0%D1%82_%D1%82%D0%B5%D0%BE%D1%80%D0%B8%D1%8F%D1%81%D1%8B
+- Ақпарат теориясы (EN): https://en.wikipedia.org/wiki/Information_theory
+- Энтропия негіздері: https://en.wikipedia.org/wiki/Entropy_(information_theory)
+- Mastermind талдауы: https://en.wikipedia.org/wiki/Mastermind_(board_game)
+- Wordle ережелері: https://en.wikipedia.org/wiki/Wordle
 
 ---
 
-**License**: MIT (or your choice).  
-**Authoring**: CMU‑style rigor, type‑safe TS, performance‑first.
-
+**License**: MIT (немесе қалауыңызша).  
+**Authoring**: Түрлі ортада қолдануға дайын, типтік қауіпсіз TypeScript код базасы.
