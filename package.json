@@ -3,10 +3,10 @@
   "private": true,
   "packageManager": "pnpm@9.9.0",
   "scripts": {
-    "build": "pnpm --filter @wordle/core build && pnpm --filter @wordle/core precompute -- --cache-dir=./apps/web/public/cache && pnpm --filter @wordle/web build",
+    "build": "pnpm --filter @wordle/core build && pnpm --filter @wordle/core precompute -- --cache-dir=../../apps/web/public/cache && pnpm --filter @wordle/web build",
     "dev": "pnpm --filter @wordle/core build && pnpm --filter @wordle/web dev",
     "lint": "pnpm --filter @wordle/web lint",
-    "precompute": "pnpm --filter @wordle/core precompute -- --cache-dir=./apps/web/public/cache"
+    "precompute": "pnpm --filter @wordle/core precompute -- --cache-dir=../../apps/web/public/cache"
   }
 }
 
