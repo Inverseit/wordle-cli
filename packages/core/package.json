@@ -9,7 +9,8 @@
     "dev": "tsx src/cli/index.ts",
     "precompute": "tsx src/cli/index.ts --precompute",
     "solve": "tsx src/cli/index.ts --mode=hardcore",
-    "solve:full": "tsx src/cli/index.ts --mode=full"
+    "solve:full": "tsx src/cli/index.ts --mode=full",
+    "generate:initial": "tsx scripts/generateInitialSuggestions.ts"
   },
   "exports": {
     ".": {

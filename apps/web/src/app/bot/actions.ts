@@ -24,6 +24,10 @@ export interface BotAnalysisResponse {
   candidateCount: number;
 }
 
+import initialSuggestionsData from "../../generated/initialSuggestions.json";
+
+const INITIAL_SUGGESTIONS: BotAnalysisResponse = initialSuggestionsData;
+
 function filterCandidates(
   allWords: string[],
   history: GuessHistoryEntry[],
@@ -65,6 +69,13 @@ export async function computeSuggestions(
   _mode: SolverMode,
   limit: number = 10,
 ): Promise<BotAnalysisResponse> {
+  if (history.length === 0 && limit <= INITIAL_SUGGESTIONS.suggestions.length) {
+    return {
+      suggestions: INITIAL_SUGGESTIONS.suggestions.slice(0, limit),
+      candidateCount: INITIAL_SUGGESTIONS.candidateCount,
+    };
+  }
+
   const allWords = WORDS.map((w) => w.toLowerCase());
   const candidateIndices = filterCandidates(allWords, history);
   const wordIndexByString = new Map<string, number>(

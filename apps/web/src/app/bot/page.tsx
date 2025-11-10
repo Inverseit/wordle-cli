@@ -20,10 +20,11 @@ import type {
   GuessHistoryEntry,
 } from "../../lib/types";
 import { WORDS, WORD_LENGTH } from "@wordle/core/browser";
+import initialSuggestionsData from "../../generated/initialSuggestions.json";
 
-const TOTAL_WORDS = WORDS.length;
 const DICTIONARY_SET = new Set(WORDS.map((w) => w.toLowerCase()));
 const SOLVER_MODE = "hardcore";
+const INITIAL_RESPONSE = initialSuggestionsData as BotAnalysisResponse;
 
 export default function BotPlaygroundPage() {
   const {
@@ -37,14 +38,18 @@ export default function BotPlaygroundPage() {
   } = useGameEngine();
 
   const [history, setHistory] = useState<GuessHistoryEntry[]>([]);
-  const [suggestions, setSuggestions] = useState<BotSuggestion[]>([]);
-  const [candidateCount, setCandidateCount] = useState<number | null>(TOTAL_WORDS);
+  const [suggestions, setSuggestions] = useState<BotSuggestion[]>(
+    INITIAL_RESPONSE.suggestions,
+  );
+  const [candidateCount, setCandidateCount] = useState<number | null>(
+    INITIAL_RESPONSE.candidateCount,
+  );
   const [secretVisible, setSecretVisible] = useState(false);
   const [secretInput, setSecretInput] = useState(secret.toUpperCase());
   const [secretError, setSecretError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const suggestionCacheRef = useRef<Map<string, BotAnalysisResponse>>(
-    new Map(),
+    new Map([[SOLVER_MODE, INITIAL_RESPONSE]]),
   );
 
   useEffect(() => {
@@ -78,7 +83,9 @@ export default function BotPlaygroundPage() {
     }
 
     let cancelled = false;
-    setCandidateCount(history.length === 0 ? TOTAL_WORDS : null);
+    setCandidateCount(
+      history.length === 0 ? INITIAL_RESPONSE.candidateCount : null,
+    );
     startTransition(async () => {
       const response = await computeSuggestions(history, SOLVER_MODE, 10);
       if (!cancelled) {
@@ -108,8 +115,8 @@ export default function BotPlaygroundPage() {
   const handleRandomSecret = useCallback(() => {
     resetGame();
     setHistory([]);
-    setSuggestions([]);
-    setCandidateCount(TOTAL_WORDS);
+    setSuggestions(INITIAL_RESPONSE.suggestions);
+    setCandidateCount(INITIAL_RESPONSE.candidateCount);
     setSecretVisible(false);
     setSecretError(null);
   }, [resetGame]);
@@ -127,8 +134,8 @@ export default function BotPlaygroundPage() {
     setSecretError(null);
     resetGame(normalized);
     setHistory([]);
-    setSuggestions([]);
-    setCandidateCount(TOTAL_WORDS);
+    setSuggestions(INITIAL_RESPONSE.suggestions);
+    setCandidateCount(INITIAL_RESPONSE.candidateCount);
   }, [resetGame, secretInput]);
 
   const committedHistory = useMemo<GuessHistoryEntry[]>(
