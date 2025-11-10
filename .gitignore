@@ -3,8 +3,6 @@ node_modules/
 .pnp/
 .pnp.js
 
-# Ignore lockfiles
-pnpm-lock.yaml
 
 # Ignore cache folder
 **/cache/patterns/*
