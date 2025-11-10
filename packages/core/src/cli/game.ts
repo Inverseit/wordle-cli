@@ -30,12 +30,16 @@ export async function precomputePatterns(
   const patternDir = cacheDir ? `${cacheDir}/patterns` : undefined;
   const cache = new PatternCache(allWords, wordHash, patternDir);
   let done = 0;
-  for (const g of allWords) {
-    cache.getRow(g, recompute);
-    done++;
-    if (done % 200 === 0) console.log(`  ${done}/${allWords.length}`);
+  try {
+    for (const g of allWords) {
+      cache.getRow(g, recompute);
+      done++;
+      if (done % 200 === 0) console.log(`  ${done}/${allWords.length}`);
+    }
+    console.log("Done.");
+  } finally {
+    cache.flush();
   }
-  console.log("Done.");
 }
 
 export async function runGame(
