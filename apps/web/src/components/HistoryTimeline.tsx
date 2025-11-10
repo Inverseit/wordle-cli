@@ -15,7 +15,7 @@ export function HistoryTimeline({
   if (history.length === 0) {
     return (
       <section className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-white/60">
-        Әзірше ходтар жоқ. Бот жорамалдаған сайын мұнда тарих пайда болады.
+        Әзірше жүрістер жоқ. Бот жорамалдаған сайын мұнда тарих пайда болады.
       </section>
     );
   }
@@ -23,7 +23,7 @@ export function HistoryTimeline({
   return (
     <section className="flex flex-col gap-3 rounded-3xl border border-white/10 bg-white/5 p-5">
       <header className="text-xs uppercase tracking-[0.3rem] text-white/50">
-        Ходтар тарихы
+        Жүрістер тарихы
       </header>
       <ol className="flex flex-col gap-2">
         {history.map((entry, idx) => {

@@ -5,9 +5,12 @@ export function emptyPattern(length: number = WORD_LENGTH): TileEvaluation[] {
   return Array.from({ length }, () => "empty" as TileEvaluation);
 }
 
-const CYCLE_ORDER: TileEvaluation[] = ["empty", "absent", "present", "correct"];
+const CYCLE_ORDER: TileEvaluation[] = ["absent", "present", "correct"];
 
 export function cycleTileState(state: TileEvaluation): TileEvaluation {
+  if (state === "empty" || state === "editing") {
+    return "absent";
+  }
   const index = CYCLE_ORDER.indexOf(state);
   if (index === -1) {
     return "absent";

@@ -1,6 +1,6 @@
 "use client";
 
-import type { KeyboardEvent } from "react";
+import type { CSSProperties, KeyboardEvent } from "react";
 import { cn } from "../lib/cn";
 import type { TileSnapshot } from "../lib/types";
 
@@ -29,10 +29,27 @@ export function Tile({
       ? "animate-pop"
       : "";
 
-  const style =
-    flipDelay !== undefined && !disableAnimations
-      ? { animationDelay: `${flipDelay}ms` }
-      : undefined;
+  const FLIP_BASE_DELAY = 325;
+  const style: CSSProperties | undefined = (() => {
+    if (disableAnimations) return undefined;
+
+    const animationDelayValue =
+      flipDelay !== undefined ? `${flipDelay}ms` : undefined;
+
+    if (shouldAnimate) {
+      const staggerDelay = flipDelay ?? 0;
+      return {
+        ...(animationDelayValue ? { animationDelay: animationDelayValue } : {}),
+        ["--tile-flip-color-delay" as const]: `${staggerDelay + FLIP_BASE_DELAY}ms`,
+      };
+    }
+
+    if (animationDelayValue) {
+      return { animationDelay: animationDelayValue };
+    }
+
+    return undefined;
+  })();
 
   const role = interactive ? "button" : "gridcell";
   const tabIndex = interactive ? 0 : undefined;

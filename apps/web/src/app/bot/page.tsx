@@ -53,16 +53,10 @@ export default function BotPlaygroundPage() {
     INITIAL_RESPONSE.candidateCount,
   );
   const [secretVisible, setSecretVisible] = useState(false);
-  const [secretInput, setSecretInput] = useState(secret.toUpperCase());
-  const [secretError, setSecretError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const suggestionCacheRef = useRef<Map<string, BotAnalysisResponse>>(
     new Map([[SOLVER_MODE, INITIAL_RESPONSE]]),
   );
-
-  useEffect(() => {
-    setSecretInput(secret.toUpperCase());
-  }, [secret]);
 
   const cacheKey = useMemo(() => {
     if (history.length === 0) return SOLVER_MODE;
@@ -126,30 +120,15 @@ export default function BotPlaygroundPage() {
     setSuggestions(INITIAL_RESPONSE.suggestions);
     setCandidateCount(INITIAL_RESPONSE.candidateCount);
     setSecretVisible(false);
-    setSecretError(null);
   }, [resetGame]);
 
-  const handleApplySecret = useCallback(() => {
-    const normalized = secretInput.trim().toLowerCase();
-    if (normalized.length !== WORD_LENGTH) {
-      setSecretError(`Сөз ұзындығы ${WORD_LENGTH} болуы тиіс.`);
-      return;
-    }
-    if (!DICTIONARY_SET.has(normalized)) {
-      setSecretError("Сөз сөздікте жоқ.");
-      return;
-    }
-    setSecretError(null);
-    resetGame(normalized);
+  const handleResetGame = useCallback(() => {
+    resetGame(secret);
     setHistory([]);
     setSuggestions(INITIAL_RESPONSE.suggestions);
     setCandidateCount(INITIAL_RESPONSE.candidateCount);
-  }, [resetGame, secretInput]);
-
-  const committedHistory = useMemo<GuessHistoryEntry[]>(
-    () => history,
-    [history],
-  );
+    setSecretVisible(false);
+  }, [resetGame, secret]);
 
   const topSuggestion = suggestions[0];
 
@@ -169,26 +148,12 @@ export default function BotPlaygroundPage() {
         secret={secret}
         revealed={secretVisible}
         onToggleReveal={() => setSecretVisible((prev) => !prev)}
-        inputValue={secretInput}
-        onInputChange={(value) =>
-          setSecretInput(
-            value
-              .replace(/[^A-Za-z\u0400-\u04FF]/g, "")
-              .slice(0, WORD_LENGTH)
-              .toUpperCase(),
-          )
-        }
-        onApply={handleApplySecret}
         onRandom={handleRandomSecret}
-        error={secretError}
+        onReset={handleResetGame}
         wordLength={WORD_LENGTH}
-        disabled={status === "playing" && isPending}
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="text-xs uppercase tracking-[0.3rem] text-white/50">
-          Solver Mode · Hardcore
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-4">
         <div className="flex items-center gap-3 text-sm text-white/70">
           <span
             className={cn(
@@ -247,7 +212,7 @@ export default function BotPlaygroundPage() {
         disabled={status !== "playing" || isPending}
       />
 
-      <HistoryTimeline history={committedHistory} wordLength={WORD_LENGTH} />
+      <HistoryTimeline history={history} wordLength={WORD_LENGTH} />
     </div>
   );
 }
