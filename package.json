@@ -2,10 +2,6 @@
   "name": "wordle-monorepo",
   "private": true,
   "packageManager": "pnpm@9.9.0",
-  "engines": {
-    "node": ">=20.18.0 <21",
-    "pnpm": "9.9.0"
-  },
   "scripts": {
     "build": "pnpm --filter @wordle/core build && pnpm --filter @wordle/core precompute -- --cache-dir=../../apps/web/public/cache && pnpm --filter @wordle/web build",
     "dev": "pnpm --filter @wordle/core build && pnpm --filter @wordle/web dev",
