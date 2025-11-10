@@ -63,6 +63,7 @@ async function main() {
   const guessIndices = guessWords.map((_, idx) => idx);
   const answerIndices = answerWords.map((_, idx) => idx);
   const candidateAnswerIndices = [...answerIndices];
+  const candidateGuessIndices = [...guessIndices];
   const guessIndexByWord = new Map<string, number>(
     guessWords.map((word, idx) => [word, idx]),
   );
@@ -82,6 +83,7 @@ async function main() {
     guessIndices,
     answerIndices,
     candidateAnswerIndices,
+    candidateGuessIndices,
     guessIndexByWord,
     answerIndexByWord,
     dictionaryHash,
