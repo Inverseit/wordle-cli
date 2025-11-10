@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { cn } from "../lib/cn";
 import type { BotSuggestion } from "../lib/types";
 import { WordBadge } from "./WordBadge";
@@ -29,6 +30,18 @@ export function SuggestionList({
 }: SuggestionListProps) {
   const hasSuggestions = suggestions.length > 0;
   const interactionDisabled = disabled || loading;
+  const sortedSuggestions = useMemo(() => {
+    return [...suggestions].sort((a, b) => {
+      const entropyDiff = b.entropy - a.entropy;
+      if (entropyDiff !== 0) {
+        return entropyDiff;
+      }
+      if (a.isSecret === b.isSecret) {
+        return a.word.localeCompare(b.word);
+      }
+      return a.isSecret ? -1 : 1;
+    });
+  }, [suggestions]);
 
   return (
     <section className="flex w-full flex-col gap-4 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-lg shadow-black/30">
@@ -54,7 +67,7 @@ export function SuggestionList({
         </p>
       ) : (
         <ol className="flex flex-col gap-2">
-          {suggestions.map((item, idx) => {
+          {sortedSuggestions.map((item, idx) => {
             const isTop = idx === 0;
             const isSelected = mode === "select" && selectedWord === item.word.toUpperCase();
             return (
