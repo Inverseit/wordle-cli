@@ -64,7 +64,9 @@ function pendingSnapshot(
   return {
     tiles: Array.from({ length: WORD_LENGTH }, (_, idx) => ({
       letter: pendingGuess ? pendingGuess[idx] ?? "" : "",
-      state: pendingGuess ? pattern[idx] ?? "empty" : "empty",
+      state: pendingGuess
+        ? pattern[idx] ?? (pendingGuess[idx] ? "absent" : "empty")
+        : "empty",
     })),
     committed: false,
   };
@@ -78,6 +80,18 @@ function emptySnapshot(): GuessSnapshot {
     })),
     committed: false,
   };
+}
+
+function defaultPatternForGuess(
+  guess: string | null,
+  length: number,
+): TileEvaluation[] {
+  if (!guess) {
+    return emptyPattern(length);
+  }
+  return Array.from({ length }, (_, idx) =>
+    guess[idx] ? "absent" : "empty",
+  );
 }
 
 export default function ManualSolverPage() {
@@ -161,7 +175,7 @@ export default function ManualSolverPage() {
   const handleSelectSuggestion = useCallback((word: string) => {
     const normalized = word.toUpperCase();
     setPendingGuess(normalized);
-    setPendingPattern(emptyPattern(WORD_LENGTH));
+    setPendingPattern(defaultPatternForGuess(normalized, WORD_LENGTH));
     setFormError(null);
   }, []);
 
@@ -220,6 +234,11 @@ export default function ManualSolverPage() {
     setFormError(null);
   }, []);
 
+  const handleResetPattern = useCallback(() => {
+    setPendingPattern(defaultPatternForGuess(pendingGuess, WORD_LENGTH));
+    setFormError(null);
+  }, [pendingGuess]);
+
   const disableSubmit =
     isPending ||
     !pendingGuess ||
@@ -244,10 +263,7 @@ export default function ManualSolverPage() {
         pendingPattern={pendingPattern}
         onTileClick={handleTileClick}
         onSubmit={handleSubmitAttempt}
-        onResetPattern={() => {
-          setPendingPattern(emptyPattern(WORD_LENGTH));
-          setFormError(null);
-        }}
+        onResetPattern={handleResetPattern}
         onClearHistory={handleClearHistory}
         onUndoLast={handleUndoLast}
         hasHistory={attempts.length > 0}

@@ -47,7 +47,7 @@ export function ManualBoardSection({
   return (
     <section className="flex flex-col gap-5 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-lg shadow-black/30">
       <header className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold text-white">Ход кестесі</h2>
+        <h2 className="text-lg font-semibold text-white">Жүрістер кестесі</h2>
         <p className="text-sm text-white/60">
           Әр жол Wordle ойыныңыздағы нақты жүрісті бейнелейді. Соңғы жолды
           таңдаулы сөз үшін өрнек кодын көрсету мақсатында қолданыңыз.
@@ -129,7 +129,7 @@ export function ManualBoardSection({
           onClick={onSubmit}
           disabled={disableSubmit}
         >
-          {loading ? "Есептелуде..." : "Ходты сақтау"}
+          {loading ? "Есептелуде..." : "Жүрісті сақтау"}
         </button>
       </div>
     </section>
@@ -138,7 +138,7 @@ export function ManualBoardSection({
 
 function cycleLegend(length: number, expectedLength: number): string {
   if (length !== expectedLength) return "жаңартыңыз";
-  return "циклдеуге болады: ⬜ → 🟨 → 🟩";
+  return "⬜ → 🟨 → 🟩 → ⬜";
 }
 
 
