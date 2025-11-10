@@ -8,6 +8,7 @@ import {
   createInMemoryPatternProvider,
   createPatternCacheProvider,
   HardcoreSolver,
+  FullEntropySolver,
   dictionarySignature,
   type GuessEval,
   type SolverContext,
@@ -27,7 +28,22 @@ export interface BotAnalysisResponse {
 
 import initialSuggestionsData from "../../generated/initialSuggestions.json";
 
-const INITIAL_SUGGESTIONS: BotAnalysisResponse = initialSuggestionsData;
+const SECRET_WORD_SET = new Set(VALID_SECRETS.map((w) => w.toLowerCase()));
+
+const INITIAL_SUGGESTIONS: BotAnalysisResponse = {
+  candidateCount: initialSuggestionsData.candidateCount,
+  suggestions: initialSuggestionsData.suggestions.map((item) => ({
+    ...item,
+    isSecret: SECRET_WORD_SET.has(item.word.toLowerCase()),
+  })),
+};
+
+function createSolver(mode: SolverMode) {
+  if (mode === "hardcore") {
+    return new HardcoreSolver();
+  }
+  return new FullEntropySolver();
+}
 
 function filterCandidates(
   answerWords: string[],
@@ -67,7 +83,7 @@ const HAS_CACHE_DIR = existsSync(PATTERN_DIR);
 
 export async function computeSuggestions(
   history: GuessHistoryEntry[],
-  _mode: SolverMode,
+  mode: SolverMode,
   limit: number = 10,
 ): Promise<BotAnalysisResponse> {
   if (history.length === 0 && limit <= INITIAL_SUGGESTIONS.suggestions.length) {
@@ -90,7 +106,7 @@ export async function computeSuggestions(
   );
   const dictionaryHash = dictionarySignature(guessWords, answerWords);
 
-  const solver = new HardcoreSolver();
+  const solver = createSolver(mode);
 
   const providerFactory =
     HAS_CACHE_DIR
@@ -115,10 +131,14 @@ export async function computeSuggestions(
   const suggestions: GuessEval[] = await solver.topGuesses(ctx, limit);
 
   return {
-    suggestions: suggestions.map((item) => ({
-      word: guessWords[item.guessIndex],
-      entropy: item.entropy,
-    })),
+    suggestions: suggestions.map((item) => {
+      const word = guessWords[item.guessIndex];
+      return {
+        word,
+        entropy: item.entropy,
+        isSecret: answerIndexByWord.has(word),
+      };
+    }),
     candidateCount: candidateAnswerIndices.length,
   };
 }

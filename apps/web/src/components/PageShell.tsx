@@ -7,6 +7,7 @@ import { type PropsWithChildren } from "react";
 const NAV_ITEMS = [
   { href: "/play", label: "Жаңа ойын" },
   { href: "/bot", label: "Бот анализі" },
+  { href: "/manual", label: "Қолмен анализ" },
 ];
 
 export function PageShell({ children }: PropsWithChildren) {

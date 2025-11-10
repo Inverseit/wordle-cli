@@ -18,13 +18,21 @@ import { cn } from "../../lib/cn";
 import type {
   BotSuggestion,
   GuessHistoryEntry,
+  SolverMode,
 } from "../../lib/types";
 import { VALID_SECRETS, WORD_LENGTH } from "@wordle/core/browser";
 import initialSuggestionsData from "../../generated/initialSuggestions.json";
+import { WordBadge } from "../../components/WordBadge";
 
 const DICTIONARY_SET = new Set(VALID_SECRETS.map((w) => w.toLowerCase()));
-const SOLVER_MODE = "hardcore";
-const INITIAL_RESPONSE = initialSuggestionsData as BotAnalysisResponse;
+const SOLVER_MODE: SolverMode = "full";
+const INITIAL_RESPONSE: BotAnalysisResponse = {
+  candidateCount: initialSuggestionsData.candidateCount,
+  suggestions: initialSuggestionsData.suggestions.map((item) => ({
+    ...item,
+    isSecret: DICTIONARY_SET.has(item.word.toLowerCase()),
+  })),
+};
 
 export default function BotPlaygroundPage() {
   const {
@@ -179,7 +187,7 @@ export default function BotPlaygroundPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="text-xs uppercase tracking-[0.3rem] text-white/50">
-          Solver Mode · Hardcore
+          Solver Mode · Full Search
         </div>
         <div className="flex items-center gap-3 text-sm text-white/70">
           <span
@@ -211,18 +219,23 @@ export default function BotPlaygroundPage() {
           <span className="text-sm text-white/60">
             Соңғы энтропия ұсынысын қолдану:
           </span>
-          <button
-            type="button"
-            className={cn(
-              "rounded-full bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-black transition hover:bg-white/80",
-              (!topSuggestion || status !== "playing" || isPending) &&
-                "cursor-not-allowed bg-white/30 text-black/50 hover:bg-white/30",
+          <div className="flex items-center gap-3">
+            {topSuggestion && (
+              <WordBadge isSecret={topSuggestion.isSecret} variant="compact" />
             )}
-            onClick={() => topSuggestion && handleApplySuggestion(topSuggestion.word)}
-            disabled={!topSuggestion || status !== "playing" || isPending}
-          >
-            {topSuggestion ? `${topSuggestion.word.toUpperCase()}` : "—"}
-          </button>
+            <button
+              type="button"
+              className={cn(
+                "rounded-full bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-black transition hover:bg-white/80",
+                (!topSuggestion || status !== "playing" || isPending) &&
+                  "cursor-not-allowed bg-white/30 text-black/50 hover:bg-white/30",
+              )}
+              onClick={() => topSuggestion && handleApplySuggestion(topSuggestion.word)}
+              disabled={!topSuggestion || status !== "playing" || isPending}
+            >
+              {topSuggestion ? `${topSuggestion.word.toUpperCase()}` : "—"}
+            </button>
+          </div>
         </div>
       </section>
 
