@@ -16,8 +16,19 @@ export function writeAtomic(file: string, buf: Buffer) {
   renameSync(tmp, file);
 }
 
-export function binPathForGuess(guess: string, patternDir: string, hash: string) {
-  const safe = guess.replace(/[^a-z]/g, "_");
-  return path.join(patternDir, `${safe}.${hash}.bin`);
+export function binPathForGuess(
+  guess: string,
+  patternDir: string,
+  dictionaryHash: string
+) {
+  const guessHash = sha256(`guess:${guess}`);
+  const dictDir = path.join(
+    patternDir,
+    dictionaryHash.slice(0, 2),
+    dictionaryHash
+  );
+  const guessDir = path.join(dictDir, guessHash.slice(0, 2));
+  ensureDir(guessDir);
+  return path.join(guessDir, `${guessHash}.bin`);
 }
 
