@@ -43,7 +43,7 @@
 - Core package exposes both a CLI (`packages/core/src/cli`) and a library surface (`packages/core/src/lib/index.ts`) for reuse.
 - Uses a disk-backed `PatternCache` keyed by the SHA-256 of the active dictionary (generated at build time for the web).
 - Includes two entropy-driven strategies: candidate-only and full-word probing.
-- Bundles a Kazakh six-letter dictionary (`packages/core/src/lib/wordlist.ts`) by default.
+- Bundles Kazakh six-letter dictionaries (`packages/core/src/lib/validGuesses.ts` and `validSecrets.ts`) by default.
 - Supports interactive play, automated simulation, offline precomputation, and a Tailwind-powered web UX suitable for Vercel.
 
 ### Mathematical Foundations
@@ -90,7 +90,8 @@ packages/
           node.ts          # Node-only utilities (fs, crypto)
         solvers/
         types.ts
-        wordlist.ts
+        validGuesses.ts
+        validSecrets.ts
     package.json           # @wordle/core scripts and exports
     tsconfig.json
 pnpm-workspace.yaml        # workspace definition (apps/*, packages/*)
@@ -153,10 +154,10 @@ pnpm --filter @wordle/core run solve:full
 
 `@wordle/core/browser` entrypoint Node тәуелділіктері жоқ таза функцияларды экспорттайды:
 
-- `WORDS`, `WORD_LENGTH` — сөздік константалары
+- `VALID_GUESSES`, `VALID_SECRETS`, `WORD_LENGTH` — сөздік константалары
 - `feedbackCode(guess, target)` — үлгі есептеуі
 - `decodeBase3(code, length)` — үлгі декодтауы
-- `createInMemoryPatternProvider(allWords)` — жадтағы кэш провайдері
+- `createInMemoryPatternProvider(answerWords)` — жадтағы кэш провайдері
 
 Бұларды клиент компоненттерінде Node API-ларды банділеусіз қауіпсіз түрде импорттауға болады.
 
@@ -191,7 +192,7 @@ pnpm --filter @wordle/core run solve:full
 - **Құрастыру кезінде алдын ала есептеледі** — `pnpm run precompute` арқылы
 - **Next.js құрастыруымен банділенеді** — Next.js `public/` ішіндегі барлық нәрсені шығаруға көшіреді
 - **Runtime-да қолжетімді** — сервер акциялары оларды `node:fs` API-лары арқылы оқи алады
-- **Сөздік хэші бойынша кілттеледі** — кэш файлдары сөздіктің SHA-256 хэшін қамтиды, сондықтан `WORDS` өзгергенде автоматты түрде жарамсыз болады
+- **Сөздік хэші бойынша кілттеледі** — кэш файлдары жорамалдар мен жауаптар массивтерінің SHA-256 сигнатурасын (`dictionarySignature(VALID_GUESSES, VALID_SECRETS)`) қамтиды, сондықтан кез келгені өзгерсе автоматты түрде жарамсыз болады
 
 Құрастыру процесі кэш файлдарының әрдайым деплой алдында бар екенін қамтамасыз етеді, сондықтан сервер акциялары production-да есептеуді қайталауға ешқашан қажет емес.
 
@@ -202,7 +203,7 @@ pnpm --filter @wordle/core run solve:full
 - The web app imports browser-safe utilities from `@wordle/core/browser`; solver computation runs in server actions.
 - `pnpm run build` triggers `@wordle/core` compilation, regenerates the cache into `apps/web/public/cache/patterns`, then runs `next build`.
 - For Vercel, set the project root to `apps/web`, use `pnpm run build` (executed from repo root) as the build command, and leave the output directory as `.next`.
-- Cache files are static build artifacts; they can be served from `public/cache` and invalidate automatically when the dictionary hash changes.
+- Cache files are static build artifacts; they can be served from `public/cache` and invalidate automatically when the combined dictionary hash (`dictionarySignature(VALID_GUESSES, VALID_SECRETS)`) changes.
 
 ### Web Architecture & Server Actions
 
@@ -218,10 +219,10 @@ The web application uses **Next.js Server Actions** to execute solver computatio
 
 The `@wordle/core/browser` entrypoint exports pure functions that have no Node dependencies:
 
-- `WORDS`, `WORD_LENGTH` — dictionary constants
+- `VALID_GUESSES`, `VALID_SECRETS`, `WORD_LENGTH` — dictionary constants
 - `feedbackCode(guess, target)` — pattern computation
 - `decodeBase3(code, length)` — pattern decoding
-- `createInMemoryPatternProvider(allWords)` — in-memory cache provider
+- `createInMemoryPatternProvider(answerWords)` — in-memory cache provider
 
 These can be safely imported in client components without bundling `node:fs` or other Node APIs.
 
@@ -256,7 +257,7 @@ Pattern cache files (`.bin` files in `public/cache/patterns`) are:
 - **Precomputed at build time** via `pnpm run precompute`
 - **Bundled with the Next.js build** — Next.js copies everything in `public/` into the output
 - **Accessible at runtime** — server actions can read them using `node:fs` APIs
-- **Keyed by dictionary hash** — cache files include the SHA-256 hash of the dictionary, so they automatically invalidate when `WORDS` changes
+- **Keyed by dictionary hash** — cache files include the SHA-256 signature of both guess and answer lists, so they automatically invalidate when either `VALID_GUESSES` or `VALID_SECRETS` changes
 
 The build process ensures cache files are always present before deployment, so server actions never need to fall back to recomputation in production.
 
@@ -266,9 +267,11 @@ The build process ensures cache files are always present before deployment, so s
 - `PatternCache` stores a `Uint16Array` per guess where `row[targetIndex]` is the feedback code; by default files live at `cache/patterns/<guess>.<dictHash>.bin`.
 - The root `pnpm run precompute` script writes the same layout to `apps/web/public/cache/patterns` so the web UI can serve them as static assets.
 - **Server actions** read cache files from `public/cache/patterns` at runtime using `node:fs` APIs, providing fast entropy evaluation without recomputation.
-- The dictionary signature is `sha256(JSON.stringify({ len, words }))`, so any change to `WORDS` triggers new cache files.
+- The dictionary signature is `dictionarySignature(VALID_GUESSES, VALID_SECRETS)`, so any change to either list triggers new cache files.
 - `entropyForGuess` reuses the cached row to compute Shannon entropy over the remaining candidate indices.
 - `pnpm precompute` iterates every allowed word, materialising rows to warm the cache ahead of gameplay or benchmarking.
+- `pnpm --filter @wordle/core run validate:dicts` verifies dictionary integrity and runs a smoke test across sample answers.
+- `pnpm --filter @wordle/core run clean:patterns` removes stale cache artifacts before regenerating rows.
 
 ### Solvers
 
@@ -278,8 +281,9 @@ The build process ensures cache files are always present before deployment, so s
 
 ### Dictionary & Localization
 
-- `WORDS` lives in `src/lib/wordlist.ts` and currently contains a Kazakh six-letter lexicon.
-- Replace or regenerate this array to support another language; keep everything lowercase and length=`WORD_LENGTH`.
+- `VALID_GUESSES` lives in `src/lib/validGuesses.ts` (≈9k allowed probes).
+- `VALID_SECRETS` lives in `src/lib/validSecrets.ts` (≈200 official answers).
+- Replace or regenerate these arrays to support another language; keep everything lowercase and length=`WORD_LENGTH`.
 - Updating the dictionary requires a rebuild (`pnpm build`) or rerunning the CLI so that caches and the compiled output stay in sync.
 - `WORD_LENGTH` is centralised in `src/lib/config.ts`; change with caution and update the dictionary accordingly.
 
@@ -310,7 +314,7 @@ The build process ensures cache files are always present before deployment, so s
 - Негізгі пакетте CLI (`packages/core/src/cli`) және қайта пайдалануға болатын кітапхана интерфейсі (`packages/core/src/lib/index.ts`) бар.
 - Әр сөздікке арналған SHA-256 хэш арқылы байланыстыратын дискілік `PatternCache` қолданады.
 - Екі энтропиялық стратегия бар: тек кандидаттар және толық сөздер бойынша барлау.
-- Әдепкіде `packages/core/src/lib/wordlist.ts` файлы Kazakh алты әріпті сөздігін қамтиды.
+- Әдепкіде `packages/core/src/lib/validGuesses.ts` және `validSecrets.ts` файлдары Kazakh алты әріпті лексикондарын қамтиды (жорамалдар мен жауаптар бөлек).
 - Интерактивті ойын, автоматты симуляция, офлайн алдын ала есептеу және Tailwind негізіндегі веб-UX қолжетімді (Vercel-ге дайындауға болады).
 
 ### Математикалық Негіздеме
@@ -357,7 +361,8 @@ packages/
           node.ts         # Тек Node үшін утилиталар (fs, crypto)
         solvers/
         types.ts
-        wordlist.ts
+        validGuesses.ts
+        validSecrets.ts
     package.json          # @wordle/core скрипттері және экспорттары
     tsconfig.json
 pnpm-workspace.yaml       # workspace анықтамасы (apps/*, packages/*)
@@ -403,7 +408,7 @@ pnpm --filter @wordle/core run solve:full
 - `PatternCache` әр жорамал үшін `Uint16Array` қатарын сақтайды; `row[targetIndex]` — сол мақсатқа арналған код. Әдепкі файлдар `cache/patterns/<guess>.<dictHash>.bin` ретінде жазылады.
 - Түбірдегі `pnpm run precompute` скрипті дәл осы құрылымды `apps/web/public/cache/patterns` ішіне көшіреді, сондықтан веб қосымша дайын файлдарды статикалық түрде бере алады.
 - **Сервер акциялары** runtime-да `node:fs` API-лары арқылы `public/cache/patterns` ішінен кэш файлдарын оқиды, есептеуді қайталамай-ақ жылдам энтропия бағалауын қамтамасыз етеді.
-- Сөздік сигнатурасы `sha256(JSON.stringify({ len, words }))`; `WORDS` өзгерсе, кэш автоматты түрде жаңадан құрылады.
+- Сөздік сигнатурасы `dictionarySignature(VALID_GUESSES, VALID_SECRETS)`; осы тізімдердің кез келгені өзгерсе, кэш автоматты түрде жаңадан құрылады.
 - `entropyForGuess` дайын қатарды қолданып, қалған кандидаттар бойынша Шеннон энтропиясын есептейді.
 - `pnpm precompute` барлық қатарды алдын ала құрып, кейінгі ойындарды және тесттерді жеделдетеді.
 
@@ -415,7 +420,7 @@ pnpm --filter @wordle/core run solve:full
 
 ### Сөздік және Локализация
 
-- `WORDS` массиві `src/lib/wordlist.ts` ішінде орналасқан, қазір Kazakh алты әріпті сөздері енгізілген.
+- `VALID_GUESSES` массиві `src/lib/validGuesses.ts` ішінде, ал `VALID_SECRETS` `src/lib/validSecrets.ts` ішінде орналасқан (Kazakh алты әріпті сөздер).
 - Басқа тілге көшу үшін осы массивті ауыстырыңыз немесе генерациялаңыз; барлық сөздер кіші әріппен жазылып, ұзындығы `WORD_LENGTH` болуы тиіс.
 - Сөздік жаңартылғаннан кейін CLI-ді қайта қосып немесе `pnpm build` жасап, кэш пен компиляцияланған файлдарды жаңартыңыз.
 - `WORD_LENGTH` мәні `src/lib/config.ts` ішінде; өзгертсеңіз, барлық модульдер мен сөздікпен үйлестіру қажет.

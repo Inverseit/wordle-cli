@@ -1,13 +1,14 @@
 "use server";
 
 import {
-  WORDS,
+  VALID_GUESSES,
+  VALID_SECRETS,
   WORD_LENGTH,
   feedbackCode,
-  sha256,
   createInMemoryPatternProvider,
   createPatternCacheProvider,
   HardcoreSolver,
+  dictionarySignature,
   type GuessEval,
   type SolverContext,
 } from "@wordle/core";
@@ -29,19 +30,19 @@ import initialSuggestionsData from "../../generated/initialSuggestions.json";
 const INITIAL_SUGGESTIONS: BotAnalysisResponse = initialSuggestionsData;
 
 function filterCandidates(
-  allWords: string[],
+  answerWords: string[],
   history: GuessHistoryEntry[],
 ): number[] {
   if (history.length === 0) {
-    return allWords.map((_, idx) => idx);
+    return answerWords.map((_, idx) => idx);
   }
   const normalizedHistory = history.map((item) => ({
     guess: item.guess.toLowerCase(),
     pattern: item.pattern,
   }));
   const matches: number[] = [];
-  for (let idx = 0; idx < allWords.length; idx++) {
-    const word = allWords[idx];
+  for (let idx = 0; idx < answerWords.length; idx++) {
+    const word = answerWords[idx];
     let valid = true;
     for (const entry of normalizedHistory) {
       const code = feedbackCode(entry.guess, word);
@@ -76,29 +77,35 @@ export async function computeSuggestions(
     };
   }
 
-  const allWords = WORDS.map((w) => w.toLowerCase());
-  const candidateIndices = filterCandidates(allWords, history);
-  const wordIndexByString = new Map<string, number>(
-    allWords.map((word, idx) => [word, idx]),
+  const guessWords = VALID_GUESSES.map((w) => w.toLowerCase());
+  const answerWords = VALID_SECRETS.map((w) => w.toLowerCase());
+  const candidateAnswerIndices = filterCandidates(answerWords, history);
+  const answerIndices = answerWords.map((_, idx) => idx);
+  const guessIndices = guessWords.map((_, idx) => idx);
+  const guessIndexByWord = new Map<string, number>(
+    guessWords.map((word, idx) => [word, idx]),
   );
-  const wordHash = sha256(
-    JSON.stringify({ len: allWords.length, words: allWords }),
+  const answerIndexByWord = new Map<string, number>(
+    answerWords.map((word, idx) => [word, idx]),
   );
-  const allIndices = allWords.map((_, idx) => idx);
+  const dictionaryHash = dictionarySignature(guessWords, answerWords);
 
   const solver = new HardcoreSolver();
 
   const providerFactory =
     HAS_CACHE_DIR
-      ? () => createPatternCacheProvider(allWords, wordHash, PATTERN_DIR)
-      : () => createInMemoryPatternProvider(allWords);
+      ? () => createPatternCacheProvider(answerWords, dictionaryHash, PATTERN_DIR)
+      : () => createInMemoryPatternProvider(answerWords);
 
   const ctx: SolverContext = {
-    allWords,
-    allIndices,
-    candidateIndices,
-    wordIndexByString,
-    wordHash,
+    guessWords,
+    answerWords,
+    guessIndices,
+    answerIndices,
+    candidateAnswerIndices,
+    guessIndexByWord,
+    answerIndexByWord,
+    dictionaryHash,
     length: WORD_LENGTH,
     recompute: false,
     maxWorkers: 0,
@@ -109,10 +116,10 @@ export async function computeSuggestions(
 
   return {
     suggestions: suggestions.map((item) => ({
-      word: allWords[item.guessIndex],
+      word: guessWords[item.guessIndex],
       entropy: item.entropy,
     })),
-    candidateCount: candidateIndices.length,
+    candidateCount: candidateAnswerIndices.length,
   };
 }
 

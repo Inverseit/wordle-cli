@@ -36,7 +36,7 @@ export abstract class BaseSolver implements Solver {
     const patternDir =
       ctx.patternDir ?? (ctx.cacheDir ? `${ctx.cacheDir}/patterns` : undefined);
     return () =>
-      createPatternCacheProvider(ctx.allWords, ctx.wordHash, patternDir);
+      createPatternCacheProvider(ctx.answerWords, ctx.dictionaryHash, patternDir);
   }
 
   private async singleThreadEval(
@@ -46,11 +46,11 @@ export abstract class BaseSolver implements Solver {
     const provider = this.providerFactory(ctx)();
     const results: GuessEval[] = [];
     for (const gi of guessIdxs) {
-      const g = ctx.allWords[gi];
+      const g = ctx.guessWords[gi];
       const entropy = entropyForGuess(
         g,
         provider,
-        ctx.candidateIndices,
+        ctx.candidateAnswerIndices,
         ctx.recompute
       );
       results.push({ guessIndex: gi, entropy });
@@ -74,11 +74,11 @@ export abstract class BaseSolver implements Solver {
       const provider = providerFactory();
       const chunkResults: GuessEval[] = [];
       for (const gi of chunk) {
-        const g = ctx.allWords[gi];
+        const g = ctx.guessWords[gi];
         const entropy = entropyForGuess(
           g,
           provider,
-          ctx.candidateIndices,
+          ctx.candidateAnswerIndices,
           ctx.recompute
         );
         chunkResults.push({ guessIndex: gi, entropy });

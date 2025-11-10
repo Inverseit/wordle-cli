@@ -10,7 +10,9 @@
     "precompute": "tsx src/cli/index.ts --precompute",
     "solve": "tsx src/cli/index.ts --mode=hardcore",
     "solve:full": "tsx src/cli/index.ts --mode=full",
-    "generate:initial": "tsx scripts/generateInitialSuggestions.ts"
+    "generate:initial": "tsx scripts/generateInitialSuggestions.ts",
+    "validate:dicts": "tsx scripts/validateDictionaries.ts",
+    "clean:patterns": "tsx scripts/cleanPatternCache.ts"
   },
   "exports": {
     ".": {

@@ -5,28 +5,39 @@
  * Command-line interface for the Wordle solver.
  */
 
-import { WORDS, WORD_LENGTH, sha256 } from "../lib/index.js";
+import { VALID_GUESSES, VALID_SECRETS, WORD_LENGTH } from "../lib/index.js";
 import { parseArgs, parseCLIOptions } from "./args.js";
 import { precomputePatterns, runGame } from "./game.js";
 
 async function main() {
   // Validate dictionary
-  if (WORDS.length === 0) {
-    throw new Error("Dictionary (WORDS) is empty.");
+  if (VALID_GUESSES.length === 0) {
+    throw new Error("VALID_GUESSES is empty.");
   }
-  if (WORDS.some(w => w.length !== WORD_LENGTH)) {
-    throw new Error(`All words must be length=${WORD_LENGTH}`);
+  if (VALID_SECRETS.length === 0) {
+    throw new Error("VALID_SECRETS is empty.");
+  }
+  if (VALID_GUESSES.some(w => w.length !== WORD_LENGTH)) {
+    throw new Error(`All guess words must be length=${WORD_LENGTH}`);
+  }
+  if (VALID_SECRETS.some(w => w.length !== WORD_LENGTH)) {
+    throw new Error(`All answer words must be length=${WORD_LENGTH}`);
   }
 
   const args = parseArgs();
   const options = parseCLIOptions(args);
 
-  const allWords = WORDS.map(w => w.toLowerCase());
-  const wordHash = sha256(JSON.stringify({ len: allWords.length, words: allWords }));
+  const guessWords = VALID_GUESSES.map(w => w.toLowerCase());
+  const answerWords = VALID_SECRETS.map(w => w.toLowerCase());
 
   // Precompute mode: build all pattern rows and exit
   if (options.precompute) {
-    await precomputePatterns(allWords, wordHash, options.cacheDir, options.recompute);
+    await precomputePatterns(
+      guessWords,
+      answerWords,
+      options.cacheDir,
+      options.recompute,
+    );
     process.exit(0);
   }
 

@@ -11,8 +11,9 @@ export type { PatternCode, GuessEval, SolverContext, Solver } from "./types.js";
 // Configuration
 export { WORD_LENGTH, DEFAULT_CACHE_DIR, DEFAULT_PATTERN_DIR } from "./config.js";
 
-// Word list
-export { WORDS } from "./wordlist.js";
+// Word lists
+export { VALID_GUESSES } from "./validGuesses.js";
+export { VALID_SECRETS } from "./validSecrets.js";
 
 // Pattern matching
 export { feedbackCode } from "./feedback.js";
@@ -27,7 +28,7 @@ export { entropyForGuess, entropyForGuessRow } from "./entropy.js";
 
 // Utilities
 export { parsePatternString, humanPattern, decodeBase3, base3EncodePattern } from "./utils.js";
-export { sha256 } from "./utils/node.js";
+export { sha256, dictionarySignature } from "./utils/node.js";
 
 // Solvers
 export { BaseSolver } from "./solvers/BaseSolver.js";

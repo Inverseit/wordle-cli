@@ -5,11 +5,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  WORDS,
+  VALID_GUESSES,
+  VALID_SECRETS,
   WORD_LENGTH,
-  sha256,
   HardcoreSolver,
   createPatternCacheProvider,
+  dictionarySignature,
   type SolverContext,
 } from "../dist/lib/index.js";
 
@@ -57,27 +58,33 @@ async function main() {
   const { outputFile, limit, cacheDir } = parseArgs();
 
   const patternDir = path.join(cacheDir, "patterns");
-  const allWords = WORDS.map((w) => w.toLowerCase());
-  const candidateIndices = allWords.map((_, idx) => idx);
-  const allIndices = candidateIndices;
-  const wordIndexByString = new Map<string, number>(
-    allWords.map((word, idx) => [word, idx]),
+  const guessWords = VALID_GUESSES.map((w) => w.toLowerCase());
+  const answerWords = VALID_SECRETS.map((w) => w.toLowerCase());
+  const guessIndices = guessWords.map((_, idx) => idx);
+  const answerIndices = answerWords.map((_, idx) => idx);
+  const candidateAnswerIndices = [...answerIndices];
+  const guessIndexByWord = new Map<string, number>(
+    guessWords.map((word, idx) => [word, idx]),
   );
-  const wordHash = sha256(
-    JSON.stringify({ len: allWords.length, words: allWords }),
+  const answerIndexByWord = new Map<string, number>(
+    answerWords.map((word, idx) => [word, idx]),
   );
+  const dictionaryHash = dictionarySignature(guessWords, answerWords);
 
   const solver = new HardcoreSolver();
 
   const providerFactory = () =>
-    createPatternCacheProvider(allWords, wordHash, patternDir);
+    createPatternCacheProvider(answerWords, dictionaryHash, patternDir);
 
   const ctx: SolverContext = {
-    allWords,
-    allIndices,
-    candidateIndices,
-    wordIndexByString,
-    wordHash,
+    guessWords,
+    answerWords,
+    guessIndices,
+    answerIndices,
+    candidateAnswerIndices,
+    guessIndexByWord,
+    answerIndexByWord,
+    dictionaryHash,
     length: WORD_LENGTH,
     recompute: false,
     maxWorkers: 0,
@@ -89,9 +96,9 @@ async function main() {
   const evaluations = await solver.topGuesses(ctx, limit);
 
   const payload = {
-    candidateCount: candidateIndices.length,
+    candidateCount: candidateAnswerIndices.length,
     suggestions: evaluations.map((item) => ({
-      word: allWords[item.guessIndex],
+      word: guessWords[item.guessIndex],
       entropy: item.entropy,
     })),
   };

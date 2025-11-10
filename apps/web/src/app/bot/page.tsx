@@ -19,10 +19,10 @@ import type {
   BotSuggestion,
   GuessHistoryEntry,
 } from "../../lib/types";
-import { WORDS, WORD_LENGTH } from "@wordle/core/browser";
+import { VALID_SECRETS, WORD_LENGTH } from "@wordle/core/browser";
 import initialSuggestionsData from "../../generated/initialSuggestions.json";
 
-const DICTIONARY_SET = new Set(WORDS.map((w) => w.toLowerCase()));
+const DICTIONARY_SET = new Set(VALID_SECRETS.map((w) => w.toLowerCase()));
 const SOLVER_MODE = "hardcore";
 const INITIAL_RESPONSE = initialSuggestionsData as BotAnalysisResponse;
 

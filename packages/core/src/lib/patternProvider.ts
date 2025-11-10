@@ -4,7 +4,7 @@ export interface PatternProvider {
   getRow(guess: string, force: boolean): Uint16Array;
 }
 
-export function createInMemoryPatternProvider(allWords: string[]): PatternProvider {
+export function createInMemoryPatternProvider(answerWords: string[]): PatternProvider {
   const memo = new Map<string, Uint16Array>();
 
   return {
@@ -16,10 +16,10 @@ export function createInMemoryPatternProvider(allWords: string[]): PatternProvid
         }
       }
 
-      const n = allWords.length;
+      const n = answerWords.length;
       const row = new Uint16Array(n);
       for (let i = 0; i < n; i++) {
-        row[i] = feedbackCode(guess, allWords[i]);
+        row[i] = feedbackCode(guess, answerWords[i]);
       }
 
       if (!force) {

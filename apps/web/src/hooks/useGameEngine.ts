@@ -1,7 +1,8 @@
 "use client";
 
 import {
-  WORDS,
+  VALID_GUESSES,
+  VALID_SECRETS,
   WORD_LENGTH,
   feedbackCode,
   type PatternCode,
@@ -16,7 +17,7 @@ import {
 } from "../lib/types";
 import { patternCodeToEvaluations } from "../lib/patternHelpers";
 
-const DICTIONARY_SET = new Set(WORDS.map((w) => w.toLowerCase()));
+const DICTIONARY_SET = new Set(VALID_GUESSES.map((w) => w.toLowerCase()));
 
 type GameStatus = "playing" | "won" | "lost";
 
@@ -36,8 +37,12 @@ interface CommitError {
 export type CommitResult = CommitSuccess | CommitError;
 
 function randomSecret(): string {
-  const idx = Math.floor(Math.random() * WORDS.length);
-  return WORDS[idx].toLowerCase();
+  if (VALID_SECRETS.length === 0) {
+    console.warn("[useGameEngine] VALID_SECRETS is empty; using placeholder secret.");
+    return "secret"; // fallback placeholder (ensure WORD_LENGTH compatibility)
+  }
+  const idx = Math.floor(Math.random() * VALID_SECRETS.length);
+  return VALID_SECRETS[idx].toLowerCase();
 }
 
 function emptyRow(): GuessSnapshot {
@@ -85,6 +90,9 @@ function evaluationRank(state: TileEvaluation | KeyboardEvaluation | "unused"): 
 }
 
 function isDictionaryWord(word: string): boolean {
+  if (DICTIONARY_SET.size === 0) {
+    return true;
+  }
   return DICTIONARY_SET.has(word);
 }
 

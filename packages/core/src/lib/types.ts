@@ -8,16 +8,19 @@ export interface GuessEval {
 import type { PatternProvider } from "./patternProvider.js";
 
 export interface SolverContext {
-  allWords: string[];
-  allIndices: number[];        // [0..N-1]
-  candidateIndices: number[];  // subset of allIndices
-  wordIndexByString: Map<string, number>;
-  wordHash: string;            // cache key for dictionary validity
-  length: number;              // 6
-  recompute: boolean;          // force regenerate cache
-  maxWorkers: number;          // workers for parallel eval
-  cacheDir?: string;           // optional cache directory (defaults to "cache")
-  patternDir?: string;         // optional pattern cache directory (defaults to "${cacheDir}/patterns")
+  guessWords: string[];                // allowed guesses (size G)
+  answerWords: string[];               // valid answers (size A)
+  guessIndices: number[];              // [0..G-1]
+  answerIndices: number[];             // [0..A-1]
+  candidateAnswerIndices: number[];    // subset of answerIndices
+  guessIndexByWord: Map<string, number>;
+  answerIndexByWord: Map<string, number>;
+  dictionaryHash: string;              // cache key for combined dictionaries
+  length: number;                      // word length (e.g., 6)
+  recompute: boolean;                  // force regenerate cache
+  maxWorkers: number;                  // workers for parallel eval
+  cacheDir?: string;                   // optional cache directory (defaults to "cache")
+  patternDir?: string;                 // optional pattern cache directory (defaults to "${cacheDir}/patterns")
   patternProviderFactory?: () => PatternProvider;
 }
 

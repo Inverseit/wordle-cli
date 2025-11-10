@@ -38,7 +38,7 @@ export class PatternCache {
   private readonly dictionaryDir: string;
   private readonly chunkDir: string;
   private readonly indexPath: string;
-  private readonly wordCount: number;
+  private readonly answerCount: number;
   private readonly rowBytes: number;
   private readonly guessHashes = new Map<string, string>();
   private readonly lookup = new Map<string, LookupEntry>();
@@ -48,18 +48,18 @@ export class PatternCache {
   private dirtyWrites = 0;
 
   constructor(
-    private readonly allWords: string[],
-    private readonly wordHash: string,
+    private readonly answerWords: string[],
+    private readonly dictionaryHash: string,
     patternDir: string = DEFAULT_PATTERN_DIR
   ) {
     this.patternDir = patternDir;
-    this.wordCount = allWords.length;
-    this.rowBytes = this.wordCount * Uint16Array.BYTES_PER_ELEMENT;
+    this.answerCount = answerWords.length;
+    this.rowBytes = this.answerCount * Uint16Array.BYTES_PER_ELEMENT;
 
     const baseDir = path.join(
       this.patternDir,
-      this.wordHash.slice(0, 2),
-      this.wordHash
+      this.dictionaryHash.slice(0, 2),
+      this.dictionaryHash
     );
     this.dictionaryDir = baseDir;
     this.chunkDir = path.join(baseDir, "chunks");
@@ -203,9 +203,9 @@ export class PatternCache {
   }
 
   private computeRow(guess: string): Uint16Array {
-    const row = new Uint16Array(this.wordCount);
-    for (let i = 0; i < this.wordCount; i++) {
-      row[i] = feedbackCode(guess, this.allWords[i]);
+    const row = new Uint16Array(this.answerCount);
+    for (let i = 0; i < this.answerCount; i++) {
+      row[i] = feedbackCode(guess, this.answerWords[i]);
     }
     return row;
   }
