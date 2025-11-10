@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "../lib/cn";
 
 interface SecretControlsProps {
@@ -28,6 +28,7 @@ export function SecretControls({
   error,
   wordLength,
 }: SecretControlsProps) {
+  const [isCustomizing, setIsCustomizing] = useState(false);
   const maskedSecret = useMemo(() => {
     if (revealed) return secret.toUpperCase();
     return Array.from({ length: wordLength })
@@ -56,29 +57,55 @@ export function SecretControls({
       </header>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <input
-          type="text"
-          value={inputValue}
-          onChange={(event) => onInputChange(event.target.value)}
-          maxLength={wordLength}
-          className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm uppercase tracking-widest text-white outline-none transition focus:border-white/40 focus:ring-2 focus:ring-white/30"
-          placeholder="Сөзді енгізіңіз"
-          autoCapitalize="none"
-          autoComplete="off"
-          spellCheck={false}
-        />
-        <div className="flex flex-col gap-2 sm:flex-row">
+        {isCustomizing ? (
+          <input
+            type="text"
+            value={inputValue}
+            onChange={(event) => onInputChange(event.target.value)}
+            maxLength={wordLength}
+            className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm uppercase tracking-widest text-white outline-none transition focus:border-white/40 focus:ring-2 focus:ring-white/30"
+            placeholder="Сөзді енгізіңіз"
+            autoCapitalize="none"
+            autoComplete="off"
+            spellCheck={false}
+            disabled={disabled}
+          />
+        ) : (
           <button
             type="button"
             className={cn(
-              "rounded-full bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-black transition hover:bg-white/80",
+              "w-full rounded-2xl border border-white/20 bg-black/30 px-4 py-3 text-sm uppercase tracking-widest text-white transition hover:bg-white/10",
               disabled && "cursor-not-allowed opacity-60",
             )}
+            onClick={() => setIsCustomizing(true)}
             disabled={disabled}
-            onClick={onApply}
           >
-            Қолдану
+            Өз сөзіңізді қосыңыз
           </button>
+        )}
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {isCustomizing && (
+            <>
+              <button
+                type="button"
+                className={cn(
+                  "rounded-full bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-black transition hover:bg-white/80",
+                  disabled && "cursor-not-allowed opacity-60",
+                )}
+                disabled={disabled}
+                onClick={onApply}
+              >
+                Қолдану
+              </button>
+              <button
+                type="button"
+                className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-white/10"
+                onClick={() => setIsCustomizing(false)}
+              >
+                Болдырмау
+              </button>
+            </>
+          )}
           <button
             type="button"
             className="rounded-full bg-white/15 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-white/25"
