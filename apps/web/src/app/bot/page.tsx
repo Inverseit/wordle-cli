@@ -1,23 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { GameBoard } from "../../components/GameBoard";
 import { SecretControls } from "../../components/SecretControls";
-import { SolverModeToggle } from "../../components/SolverModeToggle";
 import { SuggestionList } from "../../components/SuggestionList";
 import { HistoryTimeline } from "../../components/HistoryTimeline";
 import { useGameEngine } from "../../hooks/useGameEngine";
-import { computeSuggestions } from "./actions";
+import { computeSuggestions, type BotAnalysisResponse } from "./actions";
 import { cn } from "../../lib/cn";
 import type {
   BotSuggestion,
   GuessHistoryEntry,
-  SolverMode,
 } from "../../lib/types";
 import { WORDS, WORD_LENGTH } from "@wordle/core/browser";
 
 const TOTAL_WORDS = WORDS.length;
 const DICTIONARY_SET = new Set(WORDS.map((w) => w.toLowerCase()));
+const SOLVER_MODE = "hardcore";
 
 export default function BotPlaygroundPage() {
   const {
@@ -31,17 +37,27 @@ export default function BotPlaygroundPage() {
   } = useGameEngine();
 
   const [history, setHistory] = useState<GuessHistoryEntry[]>([]);
-  const [mode, setMode] = useState<SolverMode>("hardcore");
   const [suggestions, setSuggestions] = useState<BotSuggestion[]>([]);
   const [candidateCount, setCandidateCount] = useState<number | null>(TOTAL_WORDS);
   const [secretVisible, setSecretVisible] = useState(false);
   const [secretInput, setSecretInput] = useState(secret.toUpperCase());
   const [secretError, setSecretError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const suggestionCacheRef = useRef<Map<string, BotAnalysisResponse>>(
+    new Map(),
+  );
 
   useEffect(() => {
     setSecretInput(secret.toUpperCase());
   }, [secret]);
+
+  const cacheKey = useMemo(() => {
+    if (history.length === 0) return SOLVER_MODE;
+    const signature = history
+      .map((entry) => `${entry.guess}:${entry.pattern}`)
+      .join("|");
+    return `${SOLVER_MODE}|${signature}`;
+  }, [history]);
 
   useEffect(() => {
     if (status !== "playing") {
@@ -54,23 +70,27 @@ export default function BotPlaygroundPage() {
       return;
     }
 
-    let cancelled = false;
-    if (history.length === 0) {
-      setCandidateCount(TOTAL_WORDS);
-    } else {
-      setCandidateCount(null);
+    const cached = suggestionCacheRef.current.get(cacheKey);
+    if (cached) {
+      setSuggestions(cached.suggestions);
+      setCandidateCount(cached.candidateCount);
+      return;
     }
+
+    let cancelled = false;
+    setCandidateCount(history.length === 0 ? TOTAL_WORDS : null);
     startTransition(async () => {
-      const response = await computeSuggestions(history, mode, 10);
+      const response = await computeSuggestions(history, SOLVER_MODE, 10);
       if (!cancelled) {
         setSuggestions(response.suggestions);
         setCandidateCount(response.candidateCount);
+        suggestionCacheRef.current.set(cacheKey, response);
       }
     });
     return () => {
       cancelled = true;
     };
-  }, [history, mode, status]);
+  }, [cacheKey, history, status]);
 
   const handleApplySuggestion = useCallback(
     (word: string) => {
@@ -150,8 +170,10 @@ export default function BotPlaygroundPage() {
         disabled={status === "playing" && isPending}
       />
 
-  <div className="flex flex-wrap items-center justify-between gap-4">
-        <SolverModeToggle mode={mode} onChange={setMode} />
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="text-xs uppercase tracking-[0.3rem] text-white/50">
+          Solver Mode · Hardcore
+        </div>
         <div className="flex items-center gap-3 text-sm text-white/70">
           <span
             className={cn(

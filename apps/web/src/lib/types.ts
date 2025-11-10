@@ -22,7 +22,7 @@ export interface GuessHistoryEntry {
   pattern: number;
 }
 
-export type SolverMode = "hardcore" | "full";
+export type SolverMode = "hardcore";
 
 export interface BotSuggestion {
   word: string;

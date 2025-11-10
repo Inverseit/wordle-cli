@@ -6,11 +6,13 @@ import {
   feedbackCode,
   sha256,
   createInMemoryPatternProvider,
+  createPatternCacheProvider,
   HardcoreSolver,
-  FullEntropySolver,
   type GuessEval,
   type SolverContext,
 } from "@wordle/core";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import type {
   GuessHistoryEntry,
   SolverMode,
@@ -49,9 +51,18 @@ function filterCandidates(
   return matches;
 }
 
+const PATTERN_DIR = path.join(
+  process.cwd(),
+  "public",
+  "cache",
+  "patterns",
+);
+
+const HAS_CACHE_DIR = existsSync(PATTERN_DIR);
+
 export async function computeSuggestions(
   history: GuessHistoryEntry[],
-  mode: SolverMode,
+  _mode: SolverMode,
   limit: number = 10,
 ): Promise<BotAnalysisResponse> {
   const allWords = WORDS.map((w) => w.toLowerCase());
@@ -64,8 +75,12 @@ export async function computeSuggestions(
   );
   const allIndices = allWords.map((_, idx) => idx);
 
-  const solver =
-    mode === "full" ? new FullEntropySolver() : new HardcoreSolver();
+  const solver = new HardcoreSolver();
+
+  const providerFactory =
+    HAS_CACHE_DIR
+      ? () => createPatternCacheProvider(allWords, wordHash, PATTERN_DIR)
+      : () => createInMemoryPatternProvider(allWords);
 
   const ctx: SolverContext = {
     allWords,
@@ -76,7 +91,7 @@ export async function computeSuggestions(
     length: WORD_LENGTH,
     recompute: false,
     maxWorkers: 0,
-    patternProviderFactory: () => createInMemoryPatternProvider(allWords),
+    patternProviderFactory: providerFactory,
   };
 
   const suggestions: GuessEval[] = await solver.topGuesses(ctx, limit);
