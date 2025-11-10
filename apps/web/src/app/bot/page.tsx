@@ -25,7 +25,7 @@ import initialSuggestionsData from "../../generated/initialSuggestions.json";
 import { WordBadge } from "../../components/WordBadge";
 
 const DICTIONARY_SET = new Set(VALID_SECRETS.map((w) => w.toLowerCase()));
-const SOLVER_MODE: SolverMode = "full";
+const SOLVER_MODE: SolverMode = "hardcore";
 const INITIAL_RESPONSE: BotAnalysisResponse = {
   candidateCount: initialSuggestionsData.candidateCount,
   suggestions: initialSuggestionsData.suggestions.map((item) => ({
@@ -187,7 +187,7 @@ export default function BotPlaygroundPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="text-xs uppercase tracking-[0.3rem] text-white/50">
-          Solver Mode · Full Search
+          Solver Mode · Hardcore
         </div>
         <div className="flex items-center gap-3 text-sm text-white/70">
           <span

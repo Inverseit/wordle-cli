@@ -4,6 +4,10 @@ import { SolverContext } from "../types.js";
 export class HardcoreSolver extends BaseSolver {
   // Only guess from current candidate set
   protected guessUniverse(ctx: SolverContext): number[] {
+    if (ctx.candidateGuessIndices && ctx.candidateGuessIndices.length > 0) {
+      return [...ctx.candidateGuessIndices];
+    }
+
     const seen = new Set<number>();
     const guesses: number[] = [];
     for (const answerIdx of ctx.candidateAnswerIndices) {

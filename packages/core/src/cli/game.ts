@@ -17,6 +17,8 @@ import {
   humanPattern,
   dictionarySignature,
   type SolverContext,
+  type SolverHistoryEntry,
+  filterWordIndices,
   createPatternCacheProvider,
 } from "../lib/index.js";
 import { PatternCache } from "../lib/pattern.js";
@@ -55,7 +57,6 @@ export async function runGame(
   const answerWords = VALID_SECRETS.map(w => w.toLowerCase());
   const guessIndices = guessWords.map((_, i) => i);
   const answerIndices = answerWords.map((_, i) => i);
-  let candidateAnswerIndices = [...answerIndices];
   const guessIndexByWord = new Map<string, number>(guessWords.map((w, i) => [w, i]));
   const answerIndexByWord = new Map<string, number>(answerWords.map((w, i) => [w, i]));
   const dictionaryHash = dictionarySignature(guessWords, answerWords);
@@ -93,16 +94,20 @@ export async function runGame(
   const solver = mode === "full" ? new FullEntropySolver() : new HardcoreSolver();
 
   // Game loop state
-  let turn = 1;
+  const history: SolverHistoryEntry[] = [];
+  let candidateAnswerIndices = filterWordIndices(answerWords, history, feedbackCode);
 
   // Interactive loop
   while (true) {
+    const candidateGuessIndices = filterWordIndices(guessWords, history, feedbackCode);
+
     const ctx: SolverContext = {
       guessWords,
       answerWords,
       guessIndices,
       answerIndices,
       candidateAnswerIndices,
+      candidateGuessIndices,
       guessIndexByWord,
       answerIndexByWord,
       dictionaryHash,
@@ -114,6 +119,8 @@ export async function runGame(
       patternProviderFactory,
     };
 
+    const turn = history.length + 1;
+
     const { guessIndex, entropy } = await solver.nextGuess(ctx);
     if (guessIndex < 0) {
       console.error("No valid guess was produced. Check inputs and cache.");
@@ -121,7 +128,9 @@ export async function runGame(
     }
     const guess = guessWords[guessIndex];
 
-    console.log(`\nTurn ${turn} | Solver=${solver.name()} | Candidates=${candidateAnswerIndices.length}`);
+    console.log(
+      `\nTurn ${turn} | Solver=${solver.name()} | Candidates=${candidateAnswerIndices.length}`,
+    );
     console.log(`Suggested guess: ${guess} (E[bits]=${entropy.toFixed(3)})`);
 
     // Obtain feedback pattern
@@ -139,26 +148,22 @@ export async function runGame(
       console.log(`You entered: ${humanPattern(patternCode, WORD_LENGTH)}`);
     }
 
-    // Filter candidates by simulating this guess against each remaining candidate
-    const nextCandidates: number[] = [];
-    for (const idx of candidateAnswerIndices) {
-      const code = feedbackCode(guess, answerWords[idx]);
-      if (code === patternCode) nextCandidates.push(idx);
-    }
-    candidateAnswerIndices = nextCandidates;
+    history.push({ guess, pattern: patternCode });
+    candidateAnswerIndices = filterWordIndices(answerWords, history, feedbackCode);
 
     // Check termination conditions
     if (candidateAnswerIndices.length === 1) {
       const ans = answerWords[candidateAnswerIndices[0]];
-      console.log(`\nSolved in ${turn} ${turn === 1 ? "guess" : "guesses"}: ${ans.toUpperCase()}`);
+      const totalGuesses = history.length;
+      console.log(
+        `\nSolved in ${totalGuesses} ${totalGuesses === 1 ? "guess" : "guesses"}: ${ans.toUpperCase()}`,
+      );
       break;
     }
     if (candidateAnswerIndices.length === 0) {
       console.error("\nNo candidates remain. Check feedback inputs or dictionary.");
       process.exit(1);
     }
-
-    turn++;
   }
 }
 
