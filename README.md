@@ -411,6 +411,8 @@ pnpm --filter @wordle/core run solve:full
 - Сөздік сигнатурасы `dictionarySignature(VALID_GUESSES, VALID_SECRETS)`; осы тізімдердің кез келгені өзгерсе, кэш автоматты түрде жаңадан құрылады.
 - `entropyForGuess` дайын қатарды қолданып, қалған кандидаттар бойынша Шеннон энтропиясын есептейді.
 - `pnpm precompute` барлық қатарды алдын ала құрып, кейінгі ойындарды және тесттерді жеделдетеді.
+- `pnpm --filter @wordle/core run validate:dicts` сөздік тұтастығын тексеріп, бірнеше жауапқа smoke-тест жүргізеді.
+- `pnpm --filter @wordle/core run clean:patterns` кэш директорияларын тазартып, жаңадан генерациялауға дайындайды.
 
 ### Шешушілер
 
