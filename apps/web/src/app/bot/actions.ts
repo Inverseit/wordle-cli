@@ -54,6 +54,22 @@ const PATTERN_PROVIDER_FACTORY = HAS_CACHE_DIR
   ? () => createPatternCacheProvider(ANSWER_WORDS, DICTIONARY_HASH, PATTERN_DIR)
   : () => createInMemoryPatternProvider(ANSWER_WORDS);
 
+function dedupeSuggestions(suggestions: BotSuggestion[]): BotSuggestion[] {
+  const seen = new Set<string>();
+  const deduped: BotSuggestion[] = [];
+
+  for (const suggestion of suggestions) {
+    const key = suggestion.word.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    deduped.push(suggestion);
+  }
+
+  return deduped;
+}
+
 const SOLVER_ENVIRONMENT: BotSolverEnvironment = {
   guessWords: GUESS_WORDS,
   answerWords: ANSWER_WORDS,
@@ -86,19 +102,30 @@ export async function computeSuggestions(
   }
 
   if (history.length === 0 && limit <= INITIAL_SUGGESTIONS.suggestions.length) {
+    const suggestions = dedupeSuggestions(
+      INITIAL_SUGGESTIONS.suggestions.slice(0, limit),
+    );
+
     return {
-      suggestions: INITIAL_SUGGESTIONS.suggestions.slice(0, limit),
+      suggestions,
       candidateCount: INITIAL_SUGGESTIONS.candidateCount,
     };
   }
 
   const solver = new HardcoreSolver();
 
-  return computeBotSuggestionsThroughSolver({
+  const { suggestions, candidateCount } = await computeBotSuggestionsThroughSolver({
     history,
     limit,
     solver,
     environment: SOLVER_ENVIRONMENT,
   });
+
+  const uniqueSuggestions = dedupeSuggestions(suggestions).slice(0, limit);
+
+  return {
+    suggestions: uniqueSuggestions,
+    candidateCount,
+  };
 }
 
