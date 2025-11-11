@@ -55,16 +55,11 @@ We use **Shannon entropy** to pick guesses that reduce uncertainty the most on a
 - For a fixed guess $g$, the Wordle feedback is a random variable $Y$ over the set of **feedback patterns** (for 6 letters, at most $3^6 = 729$).  
   - Pattern digits: **0** = gray, **1** = yellow, **2** = green.
 - The **expected information gain (EIG)** of $g$ equals the **mutual information** $I(X;Y) = H(Y)$:  
-  $$
-  H(Y) = -\sum_{p} P(p)\,\log_2 P(p), \quad
-  P(p) = \frac{N_p}{N}
-  $$
+  $$H(Y) = -\sum_{p} P(p)\,\log_2 P(p), \quad P(p) = \frac{N_p}{N}$$
   where $N_p$ is the number of candidates that would yield pattern $p$ for guess $g$.  
   - Entropy / Mutual information: [Wikipedia](https://en.wikipedia.org/wiki/Entropy_(information_theory)), [Mutual information](https://en.wikipedia.org/wiki/Mutual_information).
 - Equivalent form via expected posterior entropy:  
-  $$
-  \mathrm{EIG}(g) = \log_2 N - \sum_{p} \frac{N_p}{N}\,\log_2 N_p
-  $$
+  $$\mathrm{EIG}(g) = \log_2 N - \sum_{p} \frac{N_p}{N}\,\log_2 N_p$$
 
 **Deterministic feedback rule**: two-pass scoring (greens first, then yellows) using remaining letter frequencies to handle duplicates correctly (same as Wordle). See [Mastermind](https://en.wikipedia.org/wiki/Mastermind_(board_game)) for related search principles.
 
@@ -326,16 +321,11 @@ The build process ensures cache files are always present before deployment, so s
 - Белгілі бір жорамал $g$ үшін Wordle-дің кері байланысы $Y$ — **үлгілер** жиынына таралған айнымалы (6 әріп → максимум $3^6 = 729$ үлгі).  
   - Цифрлар: **0** = сұр, **1** = сары, **2** = жасыл.
 - **Күтілетін ақпарат ұтысы** $I(X;Y) = H(Y)$:  
-  $$
-  H(Y) = -\sum_{p} P(p)\,\log_2 P(p), \quad
-  P(p) = \frac{N_p}{N}
-  $$
+  $$H(Y) = -\sum_{p} P(p)\,\log_2 P(p), \quad P(p) = \frac{N_p}{N}$$
   мұндағы $N_p$ — $g$ жорамалы үшін үлгінің $p$ шығуына себеп болатын кандидаттар саны.  
   - Энтропия, өзара ақпарат: [EN](https://en.wikipedia.org/wiki/Entropy_(information_theory)), [Mutual information](https://en.wikipedia.org/wiki/Mutual_information).
 - Баламалы түрі:  
-  $$
-  \mathrm{EIG}(g) = \log_2 N - \sum_{p} \frac{N_p}{N}\,\log_2 N_p
-  $$
+  $$\mathrm{EIG}(g) = \log_2 N - \sum_{p} \frac{N_p}{N}\,\log_2 N_p$$
 
 **Детерминистік бағалау ережесі**: екі өтімді әдіс (алдымен жасыл, кейін сары), қайталанатын әріптерге арналған жиілік азайту логикасымен. [Mastermind](https://kk.wikipedia.org/wiki/Mastermind_(%D0%BE%D0%B9%D1%8B%D0%BD)) ойынындағы ұқсас қағидалармен байланысты.
 
