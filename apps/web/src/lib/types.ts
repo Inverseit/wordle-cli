@@ -22,10 +22,11 @@ export interface GuessHistoryEntry {
   pattern: number;
 }
 
-export type SolverMode = "hardcore";
+export type SolverMode = "hardcore" | "full";
 
 export interface BotSuggestion {
   word: string;
   entropy: number;
+  isSecret: boolean;
 }
 

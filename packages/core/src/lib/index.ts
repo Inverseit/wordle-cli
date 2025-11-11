@@ -29,6 +29,7 @@ export { entropyForGuess, entropyForGuessRow } from "./entropy.js";
 // Utilities
 export { parsePatternString, humanPattern, decodeBase3, base3EncodePattern } from "./utils.js";
 export { sha256, dictionarySignature } from "./utils/node.js";
+export { filterWordIndices, type SolverHistoryEntry } from "./solverUtils.js";
 
 // Solvers
 export { BaseSolver } from "./solvers/BaseSolver.js";

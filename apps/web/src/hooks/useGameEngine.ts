@@ -227,7 +227,7 @@ export function useGameEngine(initialSecret?: string): GameEngineControls {
       const won = evaluations.every((state) => state === "correct");
       if (won) {
         setStatus("won");
-        setMessage("Керемет! Сіз таптыңыз.");
+        setMessage("Керемет!");
         return { ok: true, guess, pattern, evaluations };
       }
 

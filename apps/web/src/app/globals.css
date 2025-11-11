@@ -59,6 +59,11 @@ body {
   background: var(--tile-fill);
   border: 2px solid var(--tile-border);
   color: var(--tile-text);
+  --tile-flip-color-delay: 0ms;
+  transition:
+    background 220ms ease var(--tile-flip-color-delay),
+    border-color 220ms ease var(--tile-flip-color-delay),
+    color 220ms ease var(--tile-flip-color-delay);
 }
 
 .tile[data-state="correct"] {
@@ -121,8 +126,10 @@ body {
 }
 
 .animate-flip {
+  --tile-flip-color-delay: 325ms;
   animation: flip-in 650ms ease forwards;
   transform-style: preserve-3d;
+  will-change: transform;
 }
 
 @keyframes tile-pop {

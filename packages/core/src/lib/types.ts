@@ -13,6 +13,7 @@ export interface SolverContext {
   guessIndices: number[];              // [0..G-1]
   answerIndices: number[];             // [0..A-1]
   candidateAnswerIndices: number[];    // subset of answerIndices
+  candidateGuessIndices?: number[];    // optional subset of guessIndices
   guessIndexByWord: Map<string, number>;
   answerIndexByWord: Map<string, number>;
   dictionaryHash: string;              // cache key for combined dictionaries

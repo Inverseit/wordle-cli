@@ -46,34 +46,38 @@ export function KazakhKeyboard({
       {KAZAKH_KEYBOARD_ROWS.map((row, rowIdx) => (
         <div key={rowIdx} className="flex justify-center gap-1">
           {row.map((keyValue) => {
-            const value =
-              typeof keyValue === "string" ? keyValue.toLowerCase() : keyValue;
+            const isSpecialKey = keyValue === "enter" || keyValue === "backspace";
+            const value = isSpecialKey ? keyValue : keyValue.toLowerCase();
             const label =
               keyValue === "enter"
                 ? "Енгізу"
                 : keyValue === "backspace"
-                  ? "Жою"
+                  ? "⌫"
                   : keyValue;
-            const state =
-              keyValue === "enter" || keyValue === "backspace"
-                ? undefined
-                : keyboard[value];
-            const widthClass =
-              keyValue === "enter" || keyValue === "backspace"
-                ? "min-w-[72px] sm:min-w-[96px]"
-                : "min-w-8 sm:min-w-9";
+            const state = isSpecialKey ? undefined : keyboard[value];
+            const widthClass = isSpecialKey
+              ? "min-w-[72px] sm:min-w-[96px]"
+              : "min-w-8 sm:min-w-9";
             return (
               <button
                 key={keyValue.toString()}
                 type="button"
                 className={cn(
-                  "keyboard-key rounded-md px-2 py-3 text-sm font-semibold uppercase transition",
+                  "keyboard-key rounded-md px-2 py-3 text-sm font-semibold transition",
+                  !isSpecialKey && "uppercase",
                   widthClass,
                   disabled ? "opacity-60" : "active:translate-y-[1px]",
                 )}
                 data-state={state}
-                onClick={() => onKeyPress(keyValue)}
+                onClick={() => onKeyPress(value)}
                 disabled={disabled}
+                aria-label={
+                  keyValue === "enter"
+                    ? "Енгізу"
+                    : keyValue === "backspace"
+                      ? "Жою"
+                      : keyValue
+                }
               >
                 {label}
               </button>
